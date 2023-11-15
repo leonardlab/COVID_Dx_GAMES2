@@ -8,6 +8,7 @@ Created on Tue Jun 14 13:37:00 2022
 from typing import List
 from sklearn.linear_model import LinearRegression
 import numpy as np
+import math
 
 
 def calc_r_sq(data_x: List[float], data_y: List[float]) -> float:
@@ -78,3 +79,77 @@ def calc_chi_sq(
         chi_sq = chi_sq + err
 
     return chi_sq
+
+
+def calc_mse(
+    exp_: List[float], sim: List[float], std: List[float], weight_by_error: str
+) -> float:
+    """Calculates chi2 between 2 datasets with measurement error described by std
+
+    Parameters
+    ----------
+    exp_
+        a list of floats defining the experimental data
+
+    sim
+        a list of floats defining the simulated data
+
+    std
+        a list of floats defining the measurement error for the experimental data
+
+    weight_by_error
+        a string defining whether the cost function should be weighted by error or not
+
+    Returns
+    -------
+    mse
+        a float defining the mean squared error (MSE) value
+
+    """
+
+    for item in sim:
+        if math.isnan(item) == True:
+            print('Nan in solutions')
+            mse = 1e10
+
+    if weight_by_error == "no":
+        std = [1] * len(exp_)
+
+    chi_sq = float(0)
+    for i, sim_val in enumerate(sim):  # for each datapoint
+        err = ((exp_[i] - sim_val) / (std[i])) ** 2
+        chi_sq = chi_sq + err
+
+    mse = chi_sq/len(sim)
+
+    return mse
+
+def check_filters(solutions: list, mse: float) -> float:
+    """Checks whether simulation results associated with a given parameter set pass
+    the cost function filter
+
+    Parameters
+    ----------
+    solutions
+        a list of floats containing the solutions associated with 
+        parameter set p 
+
+    mse
+        a float or integer defining the original mse value before filtering
+
+
+    Returns
+    -------
+    mse
+        a float or integer defining the  mse value after filtering
+
+    """
+
+    filter_code = 0
+    #max val filter for fluorophore output
+    if max(solutions) < 2000:
+        filter_code = 1
+            
+    mse = max(mse, filter_code)
+            
+    return float(mse)

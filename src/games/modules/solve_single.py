@@ -10,7 +10,7 @@ from typing import Tuple, List
 import numpy as np
 from games.models.set_model import model
 from games.utilities.saving import create_folder
-from games.utilities.metrics import calc_chi_sq, calc_r_sq
+from games.utilities.metrics import calc_mse, check_filters, calc_r_sq
 from games.plots.plots_timecourses import plot_timecourses
 from games.config.experimental_data import define_experimental_data
 
@@ -19,9 +19,7 @@ def solve_single_parameter_set(
     x: List[float],
     exp_data: List[float],
     exp_error: List[float],
-    dataID: str,
     weight_by_error: str,
-    parameter_labels: List[str],
 ) -> Tuple[List[float], float, float]:
     """
     Solves model for a single parameter set
@@ -60,12 +58,13 @@ def solve_single_parameter_set(
         a float defining the value of the correlation coefficient (r_sq)
     """
 
-    solutions = model.solve_experiment(x, dataID, parameter_labels)
-    solutions_norm = model.normalize_data(solutions, dataID)
-    chi_sq = calc_chi_sq(exp_data, solutions_norm, exp_error, weight_by_error)
+    solutions = model.solve_experiment(x)
+    solutions_norm = model.normalize_data(solutions)
+    mse = calc_mse(exp_data, solutions_norm, exp_error, weight_by_error)
+    mse - check_filters(solutions, mse)
     r_sq = calc_r_sq(exp_data, solutions_norm)
 
-    return solutions_norm, chi_sq, r_sq
+    return solutions_norm, mse, r_sq
 
 
 def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[float], float, float]:
@@ -85,7 +84,7 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
         a list of floats containing the normalized simulation
         values corresponding to the dataID defined in Settings
 
-    chi_sq
+    mse
         a float defining the value of the cost function
 
     r_sq
@@ -97,27 +96,25 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
     os.chdir(path)
     model.parameters = settings["parameters"]
     x, exp_data, exp_error = define_experimental_data(settings)
-    solutions_norm, chi_sq, r_sq = solve_single_parameter_set(
+    solutions_norm, mse, r_sq = solve_single_parameter_set(
         x,
         exp_data,
         exp_error,
-        settings["dataID"],
         settings["weight_by_error"],
-        settings["parameter_labels"],
     )
-    filename = "fit to training data"
-    run_type = "default"
-    plot_timecourses(settings["modelID"], settings["parameter_labels"])
-    model.plot_training_data(
-        x,
-        solutions_norm,
-        exp_data,
-        exp_error,
-        filename,
-        run_type,
-        settings["context"],
-        settings["dataID"],
-    )
+    # filename = "fit to training data"
+    # run_type = "default"
+    # plot_timecourses(settings["modelID"], settings["parameter_labels"])
+    # model.plot_training_data(
+    #     x,
+    #     solutions_norm,
+    #     exp_data,
+    #     exp_error,
+    #     filename,
+    #     run_type,
+    #     settings["context"],
+    #     settings["dataID"],
+    # )
 
     print("")
     print("*************************")
@@ -127,7 +124,7 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
     print("")
     print("Metrics")
     print("R_sq = " + str(np.round(r_sq, 4)))
-    print("chi_sq = " + str(np.round(chi_sq, 4)))
+    print("MSE = " + str(np.round(mse, 4)))
     print("*************************")
 
-    return solutions_norm, chi_sq, r_sq
+    return solutions_norm, mse, r_sq
