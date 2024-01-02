@@ -11,7 +11,7 @@ from typing import Tuple, List
 import numpy as np
 from scipy.integrate import odeint
 from games.plots.plots_training_data import plot_training_data_2d
-from games.models.Model_ODE_solver import ODE_solver, ODE_solver_D
+from games.models.Model_ODE_solver_outdated import ODE_solver, ODE_solver_D
 
 
 class COVID_Dx:
@@ -106,7 +106,7 @@ class COVID_Dx:
 
         """
 
-        if self.mechanismID == "model D":
+        if self.mechanismID == "D":
             solver = ODE_solver_D()
 
             C_scale = 10 ** 6
@@ -155,8 +155,7 @@ class COVID_Dx:
             final_time = 240
             tspace = np.linspace(0, final_time, timesteps)
             
-            #Set solver type and algorithm
-            solver.solver_type = "solve_ivp"
+            #Set solver algorithm
             solver.solver_alg = "LSODA"
             solver.k_loc_deactivation = self.parameters[7]
             solver.k_scale_deactivation = self.parameters[8]
@@ -212,23 +211,22 @@ class COVID_Dx:
             tspace = np.linspace(0, final_time, timesteps)
             
             #Set solver type and algorithm
-            solver.solver_type = "solve_ivp"
             solver.solver_alg = "LSODA"
             solver.k_loc_deactivation = self.parameters[5]
             solver.k_scale_deactivation = self.parameters[6]
             
             
-            if self.mechanismID == "model A":
+            if self.mechanismID == "A":
                 solver.mechanism_B = "no"
                 solver.mechanism_C = "no"
                 solver.txn_poisoning = "no"
             
-            elif self.mechanismID == "model B":
+            elif self.mechanismID == "B":
                 solver.mechanism_B = "yes"
                 solver.mechanism_C = "no"
                 solver.txn_poisoning = "no"
             
-            elif self.mechanismID == "model C":
+            elif self.mechanismID == "C":
                 solver.mechanism_B = "yes"
                 solver.mechanism_C = "yes"
                 solver.txn_poisoning = "no"
@@ -314,7 +312,7 @@ class COVID_Dx:
 
         """
 
-        if max(solutions_raw == 0):
+        if max(solutions_raw) == 0:
             solutions_norm = [0]*len(solutions_raw)
 
         else:

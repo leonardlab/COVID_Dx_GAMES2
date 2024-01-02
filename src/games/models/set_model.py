@@ -6,8 +6,8 @@ Created on Fri Jun  3 14:57:05 2022
 @author: kate
 """
 import json
-from games.models.synTF import synTF
-from games.models.synTF_chem import synTF_chem
+from games.models.COVID_Dx import COVID_Dx
+
 
 
 def set_model():
@@ -25,17 +25,15 @@ def set_model():
 
     """
 
-    if settings["modelID"] == "synTF_chem":
-        given_model = synTF_chem(
-            parameters=settings["parameters"], mechanismID=settings["mechanismID"]
-        )
+    given_model = COVID_Dx(
+        parameters=settings["parameters"],
+        mechanismID=settings["mechanismID"]
+    )
 
-    elif settings["modelID"] == "synTF":
-        given_model = synTF(parameters=settings["parameters"])
 
     return given_model
 
 
-file = open("/Users/kdreyer/Documents/Github/GAMES/src/games/config/config.json", encoding="utf-8")
+file = open("/Users/kdreyer/Documents/Github/COVID_Dx_GAMES2/src/games/config/config_COVID_Dx_D.json", encoding="utf-8")
 settings = json.load(file)
 model = set_model()

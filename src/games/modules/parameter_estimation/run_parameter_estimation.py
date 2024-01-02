@@ -54,8 +54,8 @@ def run_parameter_estimation(
     print("Global search complete.")
 
     print("Starting optimization...")
-    _, calibrated_chi_sq, _, calibrated_parameters = optimize_all(
+    _, calibrated_mse, _, calibrated_parameters = optimize_all(
         df_global_search_results, settings, parameter_estimation_problem_definition
     )
 
-    return calibrated_chi_sq, calibrated_parameters
+    return calibrated_mse, calibrated_parameters

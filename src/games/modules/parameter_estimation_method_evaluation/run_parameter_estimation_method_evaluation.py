@@ -55,7 +55,7 @@ def run_parameter_estimation_method_evaluation(
     )
     x, exp_data, exp_error = define_experimental_data(settings)
     df_global_search_results = solve_global_search(df_parameters, x, exp_data, exp_error, settings)
-    pem_evaluation_data_list, chi_sq_pem_evaluation_criterion = generate_pem_evaluation_data(
+    pem_evaluation_data_list, mse_pem_evaluation_criterion = generate_pem_evaluation_data(
         df_global_search_results, settings
     )
     print("PEM evaluation data generated.")
@@ -69,10 +69,10 @@ def run_parameter_estimation_method_evaluation(
     )
     df_list = optimize_pem_evaluation_data(
         df_initial_guesses_list,
-        chi_sq_pem_evaluation_criterion,
+        mse_pem_evaluation_criterion,
         folder_path,
         settings,
         parameter_estimation_problem_definition,
     )
-    plot_pem_evaluation(df_list, chi_sq_pem_evaluation_criterion)
+    plot_pem_evaluation(df_list, mse_pem_evaluation_criterion)
     print("PEM evaluation complete")

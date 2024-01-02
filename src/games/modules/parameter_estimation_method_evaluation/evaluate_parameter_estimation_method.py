@@ -10,7 +10,7 @@ import os
 import pandas as pd
 import numpy as np
 from games.utilities.saving import create_folder
-from games.utilities.metrics import calc_chi_sq
+from games.utilities.metrics import calc_mse
 from games.modules.parameter_estimation.optimization import optimize_all
 
 
@@ -49,20 +49,20 @@ def define_initial_guesses_for_pem_eval(
     df_initial_guesses_list = []
     for _, pem_evaluation_data in enumerate(pem_evaluation_data_list):
         df_new = df_global_search_results.copy()
-        chi_sq_list = []
+        mse_list = []
         for norm_solutions in list(df_global_search_results["normalized solutions"]):
-            chi_sq = calc_chi_sq(
+            mse = calc_mse(
                 norm_solutions,
                 pem_evaluation_data,
                 df_global_search_results["exp_error"].iloc[0],
                 weight_by_error,
             )
 
-            chi_sq_list.append(chi_sq)
+            mse_list.append(mse)
 
-        df_new["chi_sq"] = chi_sq_list
-        df_new["exp_data"] = [pem_evaluation_data] * len(chi_sq_list)
-        df_new = df_new.sort_values(by=["chi_sq"])
+        df_new["mse"] = mse_list
+        df_new["exp_data"] = [pem_evaluation_data] * len(mse_list)
+        df_new = df_new.sort_values(by=["mse"])
         df_new = df_new.reset_index(drop=True)
         df_new = df_new.drop(df_new.index[0])
         df_new = df_new.reset_index(drop=True)
@@ -74,7 +74,7 @@ def define_initial_guesses_for_pem_eval(
 
 def optimize_pem_evaluation_data(
     df_initial_guesses_list: List[pd.DataFrame],
-    chi_sq_pem_evaluation_criterion: float,
+    mse_pem_evaluation_criterion: float,
     folder_path: str,
     settings: dict,
     problem: dict,
@@ -86,7 +86,7 @@ def optimize_pem_evaluation_data(
     df_initial_guesses_list
         a list of dfs containing the initial guesses for each pem evaluation data set
 
-    chi_sq_pem_evaluation_criterion
+    mse_pem_evaluation_criterion
         a float defining the pem evaluation criterion for chi_sq
 
     folder_path
@@ -107,7 +107,7 @@ def optimize_pem_evaluation_data(
 
     """
     r_sq_pem_evaluation = []
-    chi_sq_pem_evaluation = []
+    mse_pem_evaluation = []
     df_list = []
 
     for i, df_pem_evaluation in enumerate(df_initial_guesses_list):
@@ -119,23 +119,23 @@ def optimize_pem_evaluation_data(
         df_pem_evaluation.to_csv("initial guesses.csv")
 
         print("PEM evaluation dataset " + str(i + 1))
-        r_sq_mean, chi_sq_mean, df_optimization_results, _ = optimize_all(
+        r_sq_mean, mse_mean, df_optimization_results, _ = optimize_all(
             df_pem_evaluation, settings, problem, run_type="PEM evaluation"
         )
         df_list.append(df_optimization_results)
         r_sq_pem_evaluation.append(r_sq_mean)
-        chi_sq_pem_evaluation.append(chi_sq_mean)
+        mse_pem_evaluation.append(mse_mean)
 
         os.chdir(folder_path + "/MODULE 1 - EVALUATE PARAMETER ESTIMATION METHOD")
 
     r_sq_min = min(r_sq_pem_evaluation)
-    chi_sq_max = max(chi_sq_pem_evaluation)
+    mse_max = max(mse_pem_evaluation)
 
-    print("chi_sq PEM evaluation criterion = " + str(np.round(chi_sq_pem_evaluation_criterion, 4)))
-    print("chi_sq max across all PEM evaluation = " + str(np.round(chi_sq_max, 4)))
+    print("mse PEM evaluation criterion = " + str(np.round(mse_pem_evaluation_criterion, 4)))
+    print("mse max across all PEM evaluation = " + str(np.round(mse_max, 4)))
     print("r_sq min across all PEM evaluation = " + str(np.round(r_sq_min, 4)))
 
-    if chi_sq_max <= chi_sq_pem_evaluation_criterion:
+    if mse_max <= mse_pem_evaluation_criterion:
         print("MODULE 1 PASSED")
     else:
         print("MODULE 1 FAILED")

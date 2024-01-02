@@ -172,8 +172,8 @@ def solve_single_for_global_search(row: tuple) -> Tuple[List[float], float]:
     solutions
         a list of floats defining the simulation solutions
 
-    chi_sq
-        a float defining the chi_sq value
+    mse
+        a float defining the mse value
 
     """
     # Unpack row
@@ -181,10 +181,10 @@ def solve_single_for_global_search(row: tuple) -> Tuple[List[float], float]:
     [x, exp_data, exp_error, dataID, weight_by_error, parameter_labels] = row[-6:]
 
     # Solve equations
-    solutions, chi_sq, _ = solve_single_parameter_set(
-        x, exp_data, exp_error, dataID, weight_by_error, parameter_labels
+    solutions, mse, _ = solve_single_parameter_set(
+        x, exp_data, exp_error, weight_by_error
     )
-    return solutions, chi_sq
+    return solutions, mse
 
 
 def solve_global_search(
@@ -232,13 +232,13 @@ def solve_global_search(
     df_parameters["parameter_labels"] = [settings["parameter_labels"]] * len(df_parameters.index)
 
     # Solve for each parameter set in global search
-    chi_sq_list = []
+    mse_list = []
     solutions_list = []
     if settings["parallelization"] == "no":
         for row in df_parameters.itertuples(name=None):
-            solutions, chi_sq = solve_single_for_global_search(row)
+            solutions, mse = solve_single_for_global_search(row)
             solutions_list.append(solutions)
-            chi_sq_list.append(chi_sq)
+            mse_list.append(mse)
 
     elif settings["parallelization"] == "yes":
         with mp.Pool(settings["num_cores"]) as pool:
@@ -249,11 +249,11 @@ def solve_global_search(
 
         for _, item in enumerate(output):
             solutions_list.append(item[0])
-            chi_sq_list.append(item[1])
+            mse_list.append(item[1])
 
     # structure results
     df_global_search_results = df_parameters
-    df_global_search_results["chi_sq"] = chi_sq_list
+    df_global_search_results["mse"] = mse_list
     df_global_search_results["normalized solutions"] = solutions_list
 
     df_global_search_results.to_csv("global search results.csv")

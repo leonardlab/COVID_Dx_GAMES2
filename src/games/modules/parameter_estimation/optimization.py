@@ -77,8 +77,8 @@ def define_best_optimization_results(
     r_sq_opt
         a float defining the best case r_sq value
 
-    chi_sq_opt_min
-        a float defining the best case chi2_sq value
+    mse_opt_min
+        a float defining the best case mse value
 
     best_case_parameters
         a list of floats defining the best case parameters
@@ -93,7 +93,7 @@ def define_best_optimization_results(
     best_case_parameters = [np.round(parameter, 5) for parameter in best_case_parameters]
     solutions_norm = df_optimization_results["Simulation results"].iloc[0]
     r_sq_opt = round(df_optimization_results["r_sq"].iloc[0], 3)
-    chi_sq_opt_min = round(df_optimization_results["chi_sq"].iloc[0], 3)
+    mse_opt_min = round(df_optimization_results["mse"].iloc[0], 3)
 
     if run_type not in ("ppl", "ppl threshold"):
         filename = "best fit to training data"
@@ -107,7 +107,7 @@ def define_best_optimization_results(
             settings["context"],
             settings["dataID"],
         )
-        plot_chi_sq_trajectory(list(df_optimization_results["chi_sq_list"].iloc[0]))
+        plot_chi_sq_trajectory(list(df_optimization_results["mse_list"].iloc[0]))
 
         print("*************************")
         print("Calibrated parameters: ")
@@ -117,10 +117,10 @@ def define_best_optimization_results(
 
         print("Metrics:")
         print("R_sq = " + str(r_sq_opt))
-        print("chi_sq = " + str(chi_sq_opt_min))
+        print("MSE = " + str(mse_opt_min))
         print("*************************")
 
-    return r_sq_opt, chi_sq_opt_min, best_case_parameters
+    return r_sq_opt, mse_opt_min, best_case_parameters
 
 
 def optimize_all(
@@ -150,8 +150,8 @@ def optimize_all(
     r_sq_opt
         a float defining the best case r_sq value
 
-    chi_sq_opt_min
-        a float defining the  best case chi2_sq value
+    mse_opt_min
+        a float defining the  best case mse value
 
     df_optimization_results
         a dataframe containing the optimization results
@@ -170,7 +170,7 @@ def optimize_all(
                                                        len(df_global_search_results.index)
     )
     if run_type != "ppl threshold":
-        df_global_search_results = df_global_search_results.sort_values(by=["chi_sq"])
+        df_global_search_results = df_global_search_results.sort_values(by=["mse"])
         df_global_search_results = df_global_search_results.reset_index(drop=True)
         df_global_search_results = df_global_search_results.drop(
             df_global_search_results.index[settings["num_parameter_sets_optimization"] :]
@@ -206,7 +206,7 @@ def optimize_all(
     print("Optimization complete.")
     df_optimization_results = pd.DataFrame(all_opt_results, columns=results_row_labels)
     if run_type != "ppl threshold":
-        df_optimization_results = df_optimization_results.sort_values(by=["chi_sq"], ascending=True)
+        df_optimization_results = df_optimization_results.sort_values(by=["mse"], ascending=True)
         df_optimization_results = df_optimization_results.reset_index(drop=True)
 
     # Add experimental data to results
@@ -214,7 +214,7 @@ def optimize_all(
     df_optimization_results["exp_data"] = df_global_search_results["exp_data"]
     df_optimization_results["exp_error"] = df_global_search_results["exp_error"]
 
-    r_sq_opt, chi_sq_opt_min, best_case_parameters = define_best_optimization_results(
+    r_sq_opt, mse_opt_min, best_case_parameters = define_best_optimization_results(
         df_optimization_results, run_type, settings
     )
     if run_type == "default":
@@ -226,7 +226,7 @@ def optimize_all(
 
     df_optimization_results.to_csv("optimization results.csv")
 
-    return r_sq_opt, chi_sq_opt_min, df_optimization_results, best_case_parameters
+    return r_sq_opt, mse_opt_min, df_optimization_results, best_case_parameters
 
 
 def define_parameters_for_opt(
@@ -304,7 +304,7 @@ def define_parameters_for_opt(
 def define_results_row(
     results: lmfit.model.ModelResult,
     initial_parameters: List[float],
-    chi_sq_list: List[float],
+    mse_list: List[float],
     data_information: List[list],
     results_row_settings: List,
 ) -> Tuple[List[Any], List[str]]:
@@ -318,8 +318,8 @@ def define_results_row(
     initial_parameters
         a list of floats containing the initial guesses for each parameter
 
-    chi_sq_list
-        a list of floats containing the chi_sq values for each function evaluation
+    mse_list
+        a list of floats containing the mse values for each function evaluation
 
     data_information
         a list of lists containing x, exp_data, and exp_error
@@ -365,8 +365,8 @@ def define_results_row(
     # Solve ODEs with final optimized parameters
     model.parameters = list(results.params.valuesdict().values())[: len(initial_parameters)]
     [x, exp_data, exp_error] = data_information
-    solutions_norm, chi_sq, r_sq = solve_single_parameter_set(
-        x, exp_data, exp_error, dataID, weight_by_error, parameter_labels
+    solutions_norm, mse, r_sq = solve_single_parameter_set(
+        x, exp_data, exp_error, weight_by_error
     )
 
     # append best fit parameters to results_row for saving
@@ -379,14 +379,14 @@ def define_results_row(
     # Results.redchi_sq is the chi2 value directly from LMFit.
     # Results.redchi_sq * the number of data points should match the
     # chi_sq calculated in this code
-    items = [chi_sq, r_sq, results.redchi, results.success, model, chi_sq_list, solutions_norm]
+    items = [mse, r_sq, results.redchi, results.success, model, mse_list, solutions_norm]
     item_labels = [
-        "chi_sq",
+        "mse",
         "r_sq",
         "redchi_sq",
         "success",
         "model",
-        "chi_sq_list",
+        "mse_list",
         "Simulation results",
     ]
 
@@ -432,7 +432,7 @@ def optimize_single_initial_guess(row: tuple) -> Tuple[List[Any], List[Any]]:
     free_parameter_bounds = problem["bounds"]
     free_parameter_labels = problem["names"]
 
-    chi_sq_list = []
+    mse_list = []
 
     def solve_for_opt(
         x: List[float],
@@ -449,10 +449,10 @@ def optimize_single_initial_guess(row: tuple) -> Tuple[List[Any], List[Any]]:
     ) -> np.ndarray:
         p_opt = [p_1, p_2, p_3, p_4, p_5, p_6, p_7, p_8, p_9, p_10]
         model.parameters = p_opt[: len(parameter_labels)]
-        solutions_norm, chi_sq, _ = solve_single_parameter_set(
-            x, exp_data, exp_error, dataID, weight_by_error, parameter_labels
+        solutions_norm, mse, _ = solve_single_parameter_set(
+            x, exp_data, exp_error, weight_by_error
         )
-        chi_sq_list.append(chi_sq)
+        mse_list.append(mse)
         return np.array(solutions_norm)
 
     _, params_for_opt = define_parameters_for_opt(
@@ -484,7 +484,7 @@ def optimize_single_initial_guess(row: tuple) -> Tuple[List[Any], List[Any]]:
     results_row, results_row_labels = define_results_row(
         results,
         initial_parameters,
-        chi_sq_list,
+        mse_list,
         [x, exp_data, exp_error],
         [parameter_labels, dataID, weight_by_error],
     )

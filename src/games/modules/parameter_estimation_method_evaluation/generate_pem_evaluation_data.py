@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 from games.models.set_model import model
 from games.modules.solve_single import solve_single_parameter_set
-from games.utilities.metrics import calc_chi_sq, calc_r_sq
+from games.utilities.metrics import calc_mse, calc_r_sq
 from games.utilities.saving import save_pem_evaluation_data
 
 
@@ -162,7 +162,7 @@ def generate_pem_evaluation_data(
     pem_evaluation_data_list
         a list of lists containing the PEM evaluation data
 
-    max_chi_sq
+    max_mse
         a float defining the max chi_sq between the PEM evaluation data with and without noise
 
     """
@@ -175,7 +175,7 @@ def generate_pem_evaluation_data(
     count = 1
     pem_evaluation_data_list: List[list] = []
     r_sq_list: List[float] = []
-    chi_sq_list: List[float] = []
+    mse_list: List[float] = []
     for row in df_global_search_results_filtered.itertuples(name=None):
         # Define parameters
         p = list(row[1 : len(settings["parameters"]) + 1])
@@ -185,7 +185,7 @@ def generate_pem_evaluation_data(
         x = list(df_global_search_results["x"].iloc[0])
         exp_data = list(df_global_search_results["exp_data"].iloc[0])
         exp_error = list(df_global_search_results["exp_error"].iloc[0])
-        solutions_norm_raw, chi_sq, r_sq = solve_single_parameter_set(
+        solutions_norm_raw, mse, r_sq = solve_single_parameter_set(
             x,
             exp_data,
             exp_error,
@@ -201,22 +201,22 @@ def generate_pem_evaluation_data(
         # Calculate cost function metrics between PEM evaluation
         # training data with and without noise
         r_sq = calc_r_sq(solutions_norm_raw, solutions_norm_noise)
-        chi_sq = calc_chi_sq(
+        mse = calc_mse(
             solutions_norm_raw, solutions_norm_noise, exp_error, settings["weight_by_error"]
         )
 
         # Add metrics to full lists
         r_sq_list.append(r_sq)
-        chi_sq_list.append(chi_sq)
+        mse_list.append(mse)
         pem_evaluation_data_list.append(solutions_norm_noise)
         count += 1
 
-    max_chi_sq = define_pem_evaluation_criterion(r_sq_list, chi_sq_list)
+    max_mse = define_pem_evaluation_criterion(r_sq_list, mse_list)
     save_pem_evaluation_data(pem_evaluation_data_list)
-    return pem_evaluation_data_list, max_chi_sq
+    return pem_evaluation_data_list, max_mse
 
 
-def define_pem_evaluation_criterion(r_sq_list: list, chi_sq_list: list) -> float:
+def define_pem_evaluation_criterion(r_sq_list: list, mse_list: list) -> float:
     """Generates PEM evaluation data based on results of a global search
 
     Parameters
@@ -226,15 +226,15 @@ def define_pem_evaluation_criterion(r_sq_list: list, chi_sq_list: list) -> float
         with each pem evaluation dataset
         (calculated between the data with and without noise)
 
-    chi_sq_list
-        a list of floats containing the chi_sq values associated
+    mse_list
+        a list of floats containing the mse values associated
         with each pem evaluation dataset
         (calculated between the data with and without noise)
 
     Returns
     -------
-    max_chi_sq
-        a float defining the maximum chi_aq across all pem evaluation dataset
+    max_mse
+        a float defining the maximum mse across all pem evaluation dataset
         (calculated between the data with and without noise)
         Note that this return can be changed if the user wants to use a different
         metric to define the PEM evaluation criterion
@@ -247,18 +247,18 @@ def define_pem_evaluation_criterion(r_sq_list: list, chi_sq_list: list) -> float
     print("Mean R2 between PEM evaluation data with and without noise: " + str(mean_r_sq))
     print("Min R2 between PEM evaluation data with and without noise: " + str(min_r_sq))
 
-    mean_chi_sq = np.round(np.mean(chi_sq_list), 4)
-    max_chi_sq = np.round(max(chi_sq_list), 4)
-    if max_chi_sq == [0.0]:
-        max_chi_sq = 0.0
+    mean_mse = np.round(np.mean(mse_list), 4)
+    max_mse = np.round(max(mse_list), 4)
+    if max_mse == [0.0]:
+        max_mse = 0.0
 
-    print("Mean chi_sq between PEM evaluation data with and without noise: " + str(mean_chi_sq))
-    print("Max chi_sq between PEM evaluation data with and without noise: " + str(max_chi_sq))
+    print("Mean chi_sq between PEM evaluation data with and without noise: " + str(mean_mse))
+    print("Max chi_sq between PEM evaluation data with and without noise: " + str(max_mse))
 
     # Save PEM evaluation criterion
     df = pd.DataFrame()
     df["r_sq"] = list(r_sq_list)
-    df["chi_sq"] = list(chi_sq_list)
+    df["mse"] = list(mse_list)
     df.to_csv("./PEM evaluation criterion.csv")
 
-    return max_chi_sq
+    return max_mse

@@ -91,9 +91,9 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
         a float defining the value of the correlation coefficient (r_sq)
 
     """
-    sub_folder_name = "TEST SINGLE PARAMETER SET"
-    path = create_folder(folder_path, sub_folder_name)
-    os.chdir(path)
+    # sub_folder_name = "TEST SINGLE PARAMETER SET"
+    # path = create_folder(folder_path, sub_folder_name)
+    # os.chdir(path)
     model.parameters = settings["parameters"]
     x, exp_data, exp_error = define_experimental_data(settings)
     solutions_norm, mse, r_sq = solve_single_parameter_set(
@@ -118,9 +118,9 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
 
     print("")
     print("*************************")
-    print("Parameters")
-    for i, label in enumerate(settings["parameter_labels"]):
-        print(label + " = " + str(model.parameters[i]))
+    # print("Parameters")
+    # for i, label in enumerate(settings["parameter_labels"]):
+    #     print(label + " = " + str(model.parameters[i]))
     print("")
     print("Metrics")
     print("R_sq = " + str(np.round(r_sq, 4)))
@@ -128,3 +128,21 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
     print("*************************")
 
     return solutions_norm, mse, r_sq
+
+
+settings = {
+    "folder_name": "COVID_Dx_model_D_test",
+    "context": "/Users/kdreyer/Documents/Github/COVID_Dx_GAMES2/src/games/",
+    "parameters": [2.22994E-05, 8940.243435, 226.2897324, 232.9366873, 1.749944885, 22.66728787, 4.675577757, 97.309157, 19.21663556],
+    "weight_by_error": "no",
+    "dataID" : "rep2 slice drop high error",
+    "mechanismID": "D"
+
+}
+
+solutions_norm, mse, r_sq = run_single_parameter_set(
+    settings,
+    ""
+)
+
+print(solutions_norm)

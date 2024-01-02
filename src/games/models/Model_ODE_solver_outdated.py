@@ -45,10 +45,11 @@ class Mechanism_Solver(object):
         """
 
         self.initial_condition = x_init
-        self.conserved_amounts = np.array([])
-        for pair in self.conserved_pairs:
-            self.conserved_amounts = np.append(self.conserved_amounts, 
-                                                sum(self.initial_condition[pair]))
+        if self.conservation_form is True:
+            self.conserved_amounts = np.array([])
+            for pair in self.conserved_pairs:
+                self.conserved_amounts = np.append(self.conserved_amounts, 
+                                                   sum(self.initial_condition[pair]))
 
     def set_rates(self, rates: np.ndarray) -> None:
 
@@ -91,19 +92,51 @@ class Mechanism_Solver(object):
         """
 
         self.actual_rates = self.rates.copy()
-        self.make_jacobian()
-        self.t = tspace
-        actual_initial_condition = self.initial_condition[self.free_indices].astype(float)
-        result = solve_ivp(self.gradient, [self.t[0], self.t[-1]], actual_initial_condition, args = (self.actual_rates,), method = self.solver_alg, atol = self.abs_tol, rtol = self.rel_tol, t_eval = self.t, jac = self.jacobian) # atol = self.abs_tol, rtol = self.rel_tol,
-        sol = result.y.T
-    
-        self.solution = np.empty((np.shape(sol)[0], len(self.initial_condition)))
-        self.solution[:, self.free_indices] = sol
-        for num, pair in enumerate(self.conserved_pairs):
-            #estimates dependent variable from independent variables using the total conserved amount
-            self.solution[:,pair[0]] = self.conserved_amounts[num]
-            for number in range(1,len(pair)):
-                    self.solution[:,pair[0]] -=  self.solution[:, pair[number]]
+        if self.has_jacobian:
+            self.make_jacobian()
+        if self.conservation_form is False:
+            self.t = tspace
+            actual_initial_condition = np.append(self.initial_condition, self.dummy_variables)
+            if self.solver_type != 'solve_ivp':
+                if self.complete_output == 0:
+                    self.solution = odeint(self.gradient, actual_initial_condition, self.t, args = (self.actual_rates,), atol = self.abs_tol, rtol = self.rel_tol, tfirst = 1)
+                else:
+                    sol = odeint(self.gradient, actual_initial_condition, self.t, args = (self.actual_rates,), atol = self.abs_tol, rtol = self.rel_tol, full_output = self.complete_output, tfirst = 1)
+                    
+                    print("The complete output is ")
+                    print(sol)
+                    self.solution = sol[0]
+            else:
+        
+                self.solution = solve_ivp(self.gradient, self.t, actual_initial_condition, args = (self.actual_rates), method = self.solver_alg, atol = self.abs_tol, rtol = self.rel_tol,  jac = self.jacobian)
+
+            if len(self.dummy_variables) != 0:
+                self.solution = self.solution[:,:-len(self.dummy_variables)]
+                self.dummy_solution = self.solution[:,-len(self.dummy_variables):]
+        else:
+            self.t = tspace
+            free_variables = self.initial_condition[self.free_indices].astype(float)
+            actual_initial_condition = np.append(free_variables, self.dummy_variables)
+            if self.solver_type != 'solve_ivp':
+                sol = odeint(self.gradient, actual_initial_condition, self.t, args = (self.actual_rates,), atol = self.abs_tol, rtol = self.rel_tol, full_output = self.complete_output, tfirst =1)
+                if self.complete_output == 1:
+                    print("The complete output is ")
+                    print(sol)
+                    sol = sol[0]
+            else:
+                result = solve_ivp(self.gradient, [self.t[0], self.t[-1]], actual_initial_condition, args = (self.actual_rates,), method = self.solver_alg, atol = self.abs_tol, rtol = self.rel_tol, t_eval = self.t, jac = self.jacobian) # atol = self.abs_tol, rtol = self.rel_tol,
+                sol = result.y.T
+                
+            if len(self.dummy_variables) != 0:
+                self.dummy_solution = sol[:,-len(self.dummy_variables):]
+                sol = sol[:,:-len(self.dummy_variables)]
+            self.solution = np.empty((np.shape(sol)[0], len(self.initial_condition)))
+            self.solution[:, self.free_indices] = sol
+            for num, pair in enumerate(self.conserved_pairs):
+                #estimates dependent variable from independent variables using the total conserved amount
+                self.solution[:,pair[0]] = self.conserved_amounts[num]
+                for number in range(1,len(pair)):
+                     self.solution[:,pair[0]] -=  self.solution[:, pair[number]]
        
         return self.solution, self.t
     
@@ -152,6 +185,7 @@ class ODE_solver(Mechanism_Solver):
     '''
 
     def __init__(self):
+        self.conservation_form = True
 
         #Initial Conditions
         x_init = np.zeros(33)
@@ -164,6 +198,12 @@ class ODE_solver(Mechanism_Solver):
         x_init[27] = 50 # x_iCas13
         x_init[30] = 5000 # x_qRf
         self.initial_condition = x_init
+
+        #dummy variable to model total T7 RNAP-mediated 
+        #transcriptional activity (only used in txn
+        #poisoning mechanism)
+        x_dummy = 0 
+        self.dummy_variables = np.array([x_dummy])
 
         #rates
         k_degv = 30.6
@@ -182,6 +222,8 @@ class ODE_solver(Mechanism_Solver):
         k_degRrep = 30.6
 
         #The following rates are attribues and are not set by the function set_rates
+        self.k_txn_poisoning = 0
+        self.n_txn_poisoning = 2
         self.k_loc_deactivation = 1
         self.k_scale_deactivation = 0.5
         self.dist_type = 'expon'
@@ -206,7 +248,10 @@ class ODE_solver(Mechanism_Solver):
         self.abs_tol = None
         self.rel_tol = None
         self.complete_output = 0
+
+        self.solver_type = 'odeint'
         self.solver_alg = 'LSODA'
+        self.has_jacobian = 1
 
 
     def make_jacobian(self) -> None:
@@ -226,13 +271,13 @@ class ODE_solver(Mechanism_Solver):
         
         x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
         , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_aCas13 = sp.symbols('x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u,\
+        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy, x_aCas13 = sp.symbols('x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u,\
          x_RTp1cv, x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_aCas13')
+        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy, x_aCas13')
         
         x = [x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
         , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_aCas13 ]
+        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy, x_aCas13 ]
 
         k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_T7on, k_T7off, k_FSS, k_RHA, k_SSS, k_txn_p, k_cas13, k_degRrep =\
         sp.symbols('k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_T7on, k_T7off, k_FSS, k_RHA, k_SSS, k_txn_p, k_cas13, k_degRrep')
@@ -252,11 +297,16 @@ class ODE_solver(Mechanism_Solver):
         x_q  =  self.conserved_amounts[6] - x_qRf
         x_f  =  self.conserved_amounts[7] - x_qRf
 
-        #Negative relationship between k_txn and [T7 RNAP]
-        if self.mechanism_C == 'yes':
-            k_txn = k_txn_p/self.conserved_amounts[4]
+        #txn_poisoning
+        if self.txn_poisoning == 'yes':
+            k_txn = k_txn_p/(1+self.k_Mg*(x_dummy)**self.n_Mg)
+            k_txn = k_txn/self.conserved_amounts[4]
         else:
-            k_txn = k_txn_p
+            #Negative relationship between k_txn and [T7 RNAP]
+            if self.mechanism_C == 'yes':
+                k_txn = k_txn_p/self.conserved_amounts[4]
+            else:
+                k_txn = k_txn_p
 
         #Rates
         C_scale =  10 ** 6
@@ -285,15 +335,19 @@ class ODE_solver(Mechanism_Solver):
         u_Cas13 = k_cas13*x_u*x_iCas13
         u_uv = k_bds*x_u*x_v/C_scale
         u_qRf = - k_degRrep*x_aCas13*x_qRf
+        u_dummy = k_txn*x_T7pro
         
         velocity = [u_v, u_p1v, u_p2u, u_p1cv, u_p2cu, u_RTp1v, u_RTp2u, u_RTp1cv \
         , u_RTp2cu, u_cDNA1v, u_cDNA2u, u_RNasecDNA1v, u_RNasecDNA2u, u_cDNA1, u_cDNA2, u_p2cDNA1, u_p1cDNA2, u_RTp2cDNA1 \
-        , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf]
+        , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf, u_dummy]
         M = sp.zeros(len(x[:-1]), len(velocity))
         z = 0
         for eq in velocity:
             for sym in x[:-1]:
-                M[z] = sp.diff(eq,sym)
+                if sym == x_dummy:
+                    M[z] = 0
+                else:
+                    M[z] = sp.diff(eq,sym)
                 z += 1
         self.jac_core = sp.lambdify([x, rates], M, modules='numpy')
 
@@ -323,10 +377,10 @@ class ODE_solver(Mechanism_Solver):
         # Cas13 deactivation for jacobian
         if self.mechanism_B == 'yes':
             dist = expon(loc = self.k_loc_deactivation, scale = self.k_scale_deactivation)
-            x_aCas13 = dist.sf(t)*x[-3]
+            x_aCas13 = dist.sf(t)*x[-4]
             
         else: 
-            x_aCas13 = x[-3]
+            x_aCas13 = x[-4]
         
         return self.jac_core(np.r_[x, x_aCas13], rates)
 
@@ -356,78 +410,87 @@ class ODE_solver(Mechanism_Solver):
                 ODE solver
         """
 
-        x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
-        , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf = x
-    
-        k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_T7on, k_T7off, k_FSS, k_RHA, k_SSS, k_txn, k_cas13, k_degRrep = rates
+        if self.conservation_form is True:
+            x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
+            , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
+            , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy = x
+       
+            k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_T7on, k_T7off, k_FSS, k_RHA, k_SSS, k_txn, k_cas13, k_degRrep = rates
+       
+            if x_dummy < 0.0:
+                x_dummy = 0.0
+                
+            if x_v < 0.0:
+                x_v = 0.0
+                
+            if x_u < 0.0:
+                x_u = 0.0
+                
+            #txn_poisoning
+            if self.txn_poisoning == 'yes':
+                k_txn = k_txn/(1+self.k_Mg*(x_dummy)**self.n_Mg)
             
-        if x_v < 0.0:
-            x_v = 0.0
-            
-        if x_u < 0.0:
-            x_u = 0.0
-        
-        #Negative relationship between k_txn and [T7 RNAP]
-        if self.mechanism_C == 'yes':
-            k_txn = k_txn/self.conserved_amounts[4]
-        
-        #Conservation laws
-        x_p1 =  self.conserved_amounts[0] - x_p1v - x_p1cv - x_RTp1v - x_RTp1cv - x_cDNA1v - x_RNasecDNA1v \
-                - x_cDNA1 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
-        x_p2 =  self.conserved_amounts[1] - x_p2u - x_p2cu - x_RTp2u - x_RTp2cu - x_cDNA2u - x_RNasecDNA2u \
-                - x_cDNA2 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
-        x_RT =  self.conserved_amounts[2] - x_RTp1v - x_RTp2u - x_RTp1cv - x_RTp2cu \
-                - x_RTp2cDNA1 - x_RTp1cDNA2
-        x_RNase =  self.conserved_amounts[3] - x_RNasecDNA1v - x_RNasecDNA2u
-        x_T7 =  self.conserved_amounts[4] - x_T7pro
-        x_iCas13 = self.conserved_amounts[5] - x_Cas13
-        x_q  =  self.conserved_amounts[6] - x_qRf
-        x_f  =  self.conserved_amounts[7] - x_qRf
+            #Negative relationship between k_txn and [T7 RNAP]
+            if self.mechanism_C == 'yes':
+                k_txn = k_txn/self.conserved_amounts[4]
+           
+            #Conservation laws
+            x_p1 =  self.conserved_amounts[0] - x_p1v - x_p1cv - x_RTp1v - x_RTp1cv - x_cDNA1v - x_RNasecDNA1v \
+                    - x_cDNA1 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
+            x_p2 =  self.conserved_amounts[1] - x_p2u - x_p2cu - x_RTp2u - x_RTp2cu - x_cDNA2u - x_RNasecDNA2u \
+                    - x_cDNA2 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
+            x_RT =  self.conserved_amounts[2] - x_RTp1v - x_RTp2u - x_RTp1cv - x_RTp2cu \
+                    - x_RTp2cDNA1 - x_RTp1cDNA2
+            x_RNase =  self.conserved_amounts[3] - x_RNasecDNA1v - x_RNasecDNA2u
+            x_T7 =  self.conserved_amounts[4] - x_T7pro
+            x_iCas13 = self.conserved_amounts[5] - x_Cas13
+            x_q  =  self.conserved_amounts[6] - x_qRf
+            x_f  =  self.conserved_amounts[7] - x_qRf
 
-        
-        if self.mechanism_B == 'yes':
-            dist = expon(loc = self.k_loc_deactivation, scale = self.k_scale_deactivation)
-            x_aCas13 = dist.sf(t)*x_Cas13
-            
-        else:
-            x_aCas13 = x_Cas13
-        
-        #Rates
-        C_scale =  10 ** 6
-        u_v = - k_degv*x_v*x_aCas13 - k_bds*x_v*x_u - k_bds*x_v*x_p1
-        u_p1v =  k_bds*x_v*x_p1/C_scale - k_degv*x_p1v*x_aCas13 - k_RTon*x_p1v*x_RT + k_RToff*x_RTp1v
-        u_p2u = k_bds*x_u*x_p2 - k_degv*x_p2u*x_aCas13 - k_RTon*x_p2u*x_RT + k_RToff*x_RTp2u
-        u_p1cv = k_degv*x_p1v*x_aCas13 - k_RTon*x_p1cv*x_RT + k_RToff*x_RTp1cv
-        u_p2cu = k_degv*x_p2u*x_aCas13 - k_RTon*x_p2cu*x_RT + k_RToff*x_RTp2cu
+           
+            if self.mechanism_B == 'yes':
+                dist = expon(loc = self.k_loc_deactivation, scale = self.k_scale_deactivation)
+                x_aCas13 = dist.sf(t)*x_Cas13
+               
+            else:
+                x_aCas13 = x_Cas13
+          
+            #Rates
+            C_scale =  10 ** 6
+            u_v = - k_degv*x_v*x_aCas13 - k_bds*x_v*x_u - k_bds*x_v*x_p1
+            u_p1v =  k_bds*x_v*x_p1/C_scale - k_degv*x_p1v*x_aCas13 - k_RTon*x_p1v*x_RT + k_RToff*x_RTp1v
+            u_p2u = k_bds*x_u*x_p2 - k_degv*x_p2u*x_aCas13 - k_RTon*x_p2u*x_RT + k_RToff*x_RTp2u
+            u_p1cv = k_degv*x_p1v*x_aCas13 - k_RTon*x_p1cv*x_RT + k_RToff*x_RTp1cv
+            u_p2cu = k_degv*x_p2u*x_aCas13 - k_RTon*x_p2cu*x_RT + k_RToff*x_RTp2cu
 
-        u_RTp1v = - k_RToff*x_RTp1v + k_RTon*x_RT*x_p1v - k_degv*x_RTp1v*x_aCas13 - k_FSS*x_RTp1v
-        u_RTp2u = - k_RToff*x_RTp2u + k_RTon*x_RT*x_p2u - k_degv*x_RTp2u*x_aCas13 - k_FSS*x_RTp2u
-        u_RTp1cv = - k_RToff*x_RTp1cv + k_RTon*x_RT*x_p1cv + k_degv*x_RTp1v*x_aCas13
-        u_RTp2cu = - k_RToff*x_RTp2cu + k_RTon*x_RT*x_p2cu + k_degv*x_RTp2u*x_aCas13
+            u_RTp1v = - k_RToff*x_RTp1v + k_RTon*x_RT*x_p1v - k_degv*x_RTp1v*x_aCas13 - k_FSS*x_RTp1v
+            u_RTp2u = - k_RToff*x_RTp2u + k_RTon*x_RT*x_p2u - k_degv*x_RTp2u*x_aCas13 - k_FSS*x_RTp2u
+            u_RTp1cv = - k_RToff*x_RTp1cv + k_RTon*x_RT*x_p1cv + k_degv*x_RTp1v*x_aCas13
+            u_RTp2cu = - k_RToff*x_RTp2cu + k_RTon*x_RT*x_p2cu + k_degv*x_RTp2u*x_aCas13
 
-        u_cDNA1v = k_FSS*x_RTp1v - k_RNaseon*x_cDNA1v*x_RNase + k_RNaseoff*x_RNasecDNA1v
-        u_cDNA2u = k_FSS*x_RTp2u - k_RNaseon*x_cDNA2u*x_RNase + k_RNaseoff *x_RNasecDNA2u
-        u_RNasecDNA1v = - k_RHA*x_RNasecDNA1v - k_RNaseoff*x_RNasecDNA1v + k_RNaseon*x_RNase*x_cDNA1v
-        u_RNasecDNA2u = - k_RHA*x_RNasecDNA2u - k_RNaseoff*x_RNasecDNA2u + k_RNaseon*x_RNase*x_cDNA2u
+            u_cDNA1v = k_FSS*x_RTp1v - k_RNaseon*x_cDNA1v*x_RNase + k_RNaseoff*x_RNasecDNA1v
+            u_cDNA2u = k_FSS*x_RTp2u - k_RNaseon*x_cDNA2u*x_RNase + k_RNaseoff *x_RNasecDNA2u
+            u_RNasecDNA1v = - k_RHA*x_RNasecDNA1v - k_RNaseoff*x_RNasecDNA1v + k_RNaseon*x_RNase*x_cDNA1v
+            u_RNasecDNA2u = - k_RHA*x_RNasecDNA2u - k_RNaseoff*x_RNasecDNA2u + k_RNaseon*x_RNase*x_cDNA2u
 
-        u_cDNA1 = k_RHA*x_RNasecDNA1v - k_bds*x_cDNA1*x_p2
-        u_cDNA2 = k_RHA*x_RNasecDNA2u - k_bds*x_cDNA2*x_p1
-        u_p2cDNA1 =  k_bds*x_cDNA1*x_p2 + k_RToff*x_RTp2cDNA1 - k_RTon*x_RT*x_p2cDNA1
-        u_p1cDNA2 = k_bds*x_cDNA2*x_p1 + k_RToff*x_RTp1cDNA2 - k_RTon*x_RT*x_p1cDNA2
-        u_RTp2cDNA1 = k_RTon*x_RT*x_p2cDNA1 - k_RToff*x_RTp2cDNA1 - k_SSS*x_RTp2cDNA1
-        u_RTp1cDNA2 = k_RTon*x_RT*x_p1cDNA2 - k_RToff*x_RTp1cDNA2 - k_SSS*x_RTp1cDNA2
+            u_cDNA1 = k_RHA*x_RNasecDNA1v - k_bds*x_cDNA1*x_p2
+            u_cDNA2 = k_RHA*x_RNasecDNA2u - k_bds*x_cDNA2*x_p1
+            u_p2cDNA1 =  k_bds*x_cDNA1*x_p2 + k_RToff*x_RTp2cDNA1 - k_RTon*x_RT*x_p2cDNA1
+            u_p1cDNA2 = k_bds*x_cDNA2*x_p1 + k_RToff*x_RTp1cDNA2 - k_RTon*x_RT*x_p1cDNA2
+            u_RTp2cDNA1 = k_RTon*x_RT*x_p2cDNA1 - k_RToff*x_RTp2cDNA1 - k_SSS*x_RTp2cDNA1
+            u_RTp1cDNA2 = k_RTon*x_RT*x_p1cDNA2 - k_RToff*x_RTp1cDNA2 - k_SSS*x_RTp1cDNA2
 
-        u_pro = k_SSS*x_RTp2cDNA1 + k_SSS*x_RTp1cDNA2 - k_T7on*x_T7*x_pro + k_T7off*x_T7pro + k_txn*x_T7pro
-        u_T7pro = - k_T7off*x_T7pro + k_T7on*x_T7*x_pro - k_txn*x_T7pro
-        u_u = k_txn*x_T7pro - k_bds*x_u*x_v/C_scale - k_degv*x_u*x_aCas13 - k_cas13*x_u*x_iCas13 - k_bds*x_u*x_p2
-        u_Cas13 = k_cas13*x_u*x_iCas13
-        u_uv = k_bds*x_u*x_v/C_scale
-        u_qRf = - k_degRrep*x_aCas13*x_qRf
-        
-        velocity = [u_v, u_p1v, u_p2u, u_p1cv, u_p2cu, u_RTp1v, u_RTp2u, u_RTp1cv \
-        , u_RTp2cu, u_cDNA1v, u_cDNA2u, u_RNasecDNA1v, u_RNasecDNA2u, u_cDNA1, u_cDNA2, u_p2cDNA1, u_p1cDNA2, u_RTp2cDNA1 \
-        , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf]
+            u_pro = k_SSS*x_RTp2cDNA1 + k_SSS*x_RTp1cDNA2 - k_T7on*x_T7*x_pro + k_T7off*x_T7pro + k_txn*x_T7pro
+            u_T7pro = - k_T7off*x_T7pro + k_T7on*x_T7*x_pro - k_txn*x_T7pro
+            u_u = k_txn*x_T7pro - k_bds*x_u*x_v/C_scale - k_degv*x_u*x_aCas13 - k_cas13*x_u*x_iCas13 - k_bds*x_u*x_p2
+            u_Cas13 = k_cas13*x_u*x_iCas13
+            u_uv = k_bds*x_u*x_v/C_scale
+            u_qRf = - k_degRrep*x_aCas13*x_qRf
+            u_dummy = k_txn*x_T7pro
+         
+            velocity = [u_v, u_p1v, u_p2u, u_p1cv, u_p2cu, u_RTp1v, u_RTp2u, u_RTp1cv \
+            , u_RTp2cu, u_cDNA1v, u_cDNA2u, u_RNasecDNA1v, u_RNasecDNA2u, u_cDNA1, u_cDNA2, u_p2cDNA1, u_p1cDNA2, u_RTp2cDNA1 \
+            , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf, u_dummy]
         
         return velocity
 
@@ -479,6 +542,7 @@ class ODE_solver_D(Mechanism_Solver):
     '''
 
     def __init__(self):
+        self.conservation_form = True
 
         #Initial Conditions
         x_init = np.zeros(33)
@@ -491,6 +555,9 @@ class ODE_solver_D(Mechanism_Solver):
         x_init[27] = 50 # x_iCas13
         x_init[30] = 5000 # x_qRf
         self.initial_condition = x_init
+
+        x_dummy = 0 #dummy variable to model total T7 RNAP-mediated transcriptional activity
+        self.dummy_variables = np.array([x_dummy])
 
         #rates
         k_degv = 30.6
@@ -511,6 +578,8 @@ class ODE_solver_D(Mechanism_Solver):
         k_degRrep = 30.6
 
         #The following rates are attribues and are not set by the function set_rates
+        self.k_txn_poisoning = 0
+        self.n_txn_poisoning = 2
         self.k_loc_deactivation = 1
         self.k_scale_deactivation = 0.5
         self.dist_type = 'expon'
@@ -532,7 +601,11 @@ class ODE_solver_D(Mechanism_Solver):
         #arguments for the Odeint integrator
         self.abs_tol = None
         self.rel_tol = None
+        self.complete_output = 0
+
+        self.solver_type = 'odeint'
         self.solver_alg = 'LSODA'
+        self.has_jacobian = 1
 
 
     def make_jacobian(self):
@@ -552,13 +625,13 @@ class ODE_solver_D(Mechanism_Solver):
 
         x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
         , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_aCas13 = sp.symbols('x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u,\
+        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy, x_aCas13 = sp.symbols('x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u,\
          x_RTp1cv, x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_aCas13')
+        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy, x_aCas13')
         
         x = [x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
         , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_aCas13 ]
+        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy, x_aCas13 ]
 
 
         k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_T7on, k_T7off, k_FSS, a_RHA, b_RHA, c_RHA, k_SSS, k_txn_p, k_cas13, k_degRrep =\
@@ -580,10 +653,16 @@ class ODE_solver_D(Mechanism_Solver):
         x_f  =  self.conserved_amounts[7] - x_qRf
 
         #Negative relationship between k_txn and [T7 RNAP]
-        if self.mechanism_C == 'yes':
-            k_txn = k_txn_p/self.conserved_amounts[4]
+        
+        #txn_poisoning
+        if self.txn_poisoning == 'yes':
+            k_txn = k_txn_p/(1+self.k_Mg*(x_dummy)**self.n_Mg)
+            k_txn = k_txn/self.conserved_amounts[4]
         else:
-            k_txn = k_txn_p
+            if self.mechanism_C == 'yes':
+                k_txn = k_txn_p/self.conserved_amounts[4]
+            else:
+                k_txn = k_txn_p
 
         #RNase H mechanism- beta distribution
         k_RHA = c_RHA * (self.conserved_amounts[3]/606)**(a_RHA-1) * (1 - (self.conserved_amounts[3]/606))**(b_RHA-1)
@@ -615,15 +694,19 @@ class ODE_solver_D(Mechanism_Solver):
         u_Cas13 = k_cas13*x_u*x_iCas13
         u_uv = k_bds*x_u*x_v/C_scale
         u_qRf = - k_degRrep*x_aCas13*x_qRf
+        u_dummy = k_txn*x_T7pro
         
         velocity = [u_v, u_p1v, u_p2u, u_p1cv, u_p2cu, u_RTp1v, u_RTp2u, u_RTp1cv \
         , u_RTp2cu, u_cDNA1v, u_cDNA2u, u_RNasecDNA1v, u_RNasecDNA2u, u_cDNA1, u_cDNA2, u_p2cDNA1, u_p1cDNA2, u_RTp2cDNA1 \
-        , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf]
+        , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf, u_dummy]
         M = sp.zeros(len(x[:-1]), len(velocity))
         z = 0
         for eq in velocity:
             for sym in x[:-1]:
-                M[z] = sp.diff(eq,sym)
+                if sym == x_dummy:
+                    M[z] = 0
+                else:
+                    M[z] = sp.diff(eq,sym)
                 z += 1
         self.jac_core = sp.lambdify([x, rates], M, modules='numpy')
 
@@ -653,10 +736,10 @@ class ODE_solver_D(Mechanism_Solver):
         # Cas13 deactivation for jacobian
         if self.mechanism_B == 'yes':
             dist = expon(loc = self.k_loc_deactivation, scale = self.k_scale_deactivation)
-            x_aCas13 = dist.sf(t)*x[-3]
+            x_aCas13 = dist.sf(t)*x[-4]
             
         else: 
-            x_aCas13 = x[-3]
+            x_aCas13 = x[-4]
         
         return self.jac_core(np.r_[x, x_aCas13], rates)
 
@@ -686,80 +769,90 @@ class ODE_solver_D(Mechanism_Solver):
                 ODE solver
         """
 
-        x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
-        , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
-        , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf = x
-    
-        k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_T7on, k_T7off, k_FSS, a_RHA, b_RHA, c_RHA, k_SSS, k_txn, k_cas13, k_degRrep = rates
+        if self.conservation_form is True:
+            x_v, x_p1v, x_p2u, x_p1cv, x_p2cu, x_RTp1v, x_RTp2u, x_RTp1cv \
+            , x_RTp2cu, x_cDNA1v, x_cDNA2u, x_RNasecDNA1v, x_RNasecDNA2u, x_cDNA1, x_cDNA2, x_p2cDNA1, x_p1cDNA2, x_RTp2cDNA1 \
+            , x_RTp1cDNA2, x_pro, x_T7pro, x_u, x_Cas13, x_uv, x_qRf, x_dummy = x
+       
+            k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_T7on, k_T7off, k_FSS, a_RHA, b_RHA, c_RHA, k_SSS, k_txn, k_cas13, k_degRrep = rates
+       
+            if x_dummy < 0.0:
+                x_dummy = 0.0
+                
+            if x_v < 0.0:
+                x_v = 0.0
+                
+            if x_u < 0.0:
+                x_u = 0.0
+                
+            #txn_poisoning
+            if self.txn_poisoning == 'yes':
+                k_txn = k_txn/(1+self.k_Mg*(x_dummy)**self.n_Mg)
             
-        if x_v < 0.0:
-            x_v = 0.0
+            #Negative relationship between k_txn and [T7 RNAP]
+            if self.mechanism_C == 'yes':
+                k_txn = k_txn/self.conserved_amounts[4]
+
+            #RNase H mechanism- beta distribution
+            k_RHA = c_RHA * (self.conserved_amounts[3]/606)**(a_RHA-1) * (1 - (self.conserved_amounts[3]/606))**(b_RHA-1)
+             
+            #Conservation laws
+            x_p1 =  self.conserved_amounts[0] - x_p1v - x_p1cv - x_RTp1v - x_RTp1cv - x_cDNA1v - x_RNasecDNA1v \
+                    - x_cDNA1 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
+            x_p2 =  self.conserved_amounts[1] - x_p2u - x_p2cu - x_RTp2u - x_RTp2cu - x_cDNA2u - x_RNasecDNA2u \
+                    - x_cDNA2 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
+            x_RT =  self.conserved_amounts[2] - x_RTp1v - x_RTp2u - x_RTp1cv - x_RTp2cu \
+                    - x_RTp2cDNA1 - x_RTp1cDNA2
+            x_RNase =  self.conserved_amounts[3] - x_RNasecDNA1v - x_RNasecDNA2u
+            x_T7 =  self.conserved_amounts[4] - x_T7pro
+            x_iCas13 = self.conserved_amounts[5] - x_Cas13
+            x_q  =  self.conserved_amounts[6] - x_qRf
+            x_f  =  self.conserved_amounts[7] - x_qRf
+
             
-        if x_u < 0.0:
-            x_u = 0.0
-        
-        #Negative relationship between k_txn and [T7 RNAP]
-        if self.mechanism_C == 'yes':
-            k_txn = k_txn/self.conserved_amounts[4]
+            if self.mechanism_B == 'yes':
+                dist = expon(loc = self.k_loc_deactivation, scale = self.k_scale_deactivation)
+                x_aCas13 = dist.sf(t)*x_Cas13
+               
+            else:
+                x_aCas13 = x_Cas13
+          
+            #Rates
+            C_scale =  10 ** 6
+            u_v = - k_degv*x_v*x_aCas13 - k_bds*x_v*x_u - k_bds*x_v*x_p1
+            u_p1v =  k_bds*x_v*x_p1/C_scale - k_degv*x_p1v*x_aCas13 - k_RTon*x_p1v*x_RT + k_RToff*x_RTp1v
+            u_p2u = k_bds*x_u*x_p2 - k_degv*x_p2u*x_aCas13 - k_RTon*x_p2u*x_RT + k_RToff*x_RTp2u
+            u_p1cv = k_degv*x_p1v*x_aCas13 - k_RTon*x_p1cv*x_RT + k_RToff*x_RTp1cv
+            u_p2cu = k_degv*x_p2u*x_aCas13 - k_RTon*x_p2cu*x_RT + k_RToff*x_RTp2cu
 
-        #RNase H mechanism- beta distribution
-        k_RHA = c_RHA * (self.conserved_amounts[3]/606)**(a_RHA-1) * (1 - (self.conserved_amounts[3]/606))**(b_RHA-1)
-            
-        #Conservation laws
-        x_p1 =  self.conserved_amounts[0] - x_p1v - x_p1cv - x_RTp1v - x_RTp1cv - x_cDNA1v - x_RNasecDNA1v \
-                - x_cDNA1 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
-        x_p2 =  self.conserved_amounts[1] - x_p2u - x_p2cu - x_RTp2u - x_RTp2cu - x_cDNA2u - x_RNasecDNA2u \
-                - x_cDNA2 - x_p2cDNA1 - x_p1cDNA2 - x_RTp2cDNA1 - x_RTp1cDNA2 - x_pro - x_T7pro
-        x_RT =  self.conserved_amounts[2] - x_RTp1v - x_RTp2u - x_RTp1cv - x_RTp2cu \
-                - x_RTp2cDNA1 - x_RTp1cDNA2
-        x_RNase =  self.conserved_amounts[3] - x_RNasecDNA1v - x_RNasecDNA2u
-        x_T7 =  self.conserved_amounts[4] - x_T7pro
-        x_iCas13 = self.conserved_amounts[5] - x_Cas13
-        x_q  =  self.conserved_amounts[6] - x_qRf
-        x_f  =  self.conserved_amounts[7] - x_qRf
+            u_RTp1v = - k_RToff*x_RTp1v + k_RTon*x_RT*x_p1v - k_degv*x_RTp1v*x_aCas13 - k_FSS*x_RTp1v
+            u_RTp2u = - k_RToff*x_RTp2u + k_RTon*x_RT*x_p2u - k_degv*x_RTp2u*x_aCas13 - k_FSS*x_RTp2u
+            u_RTp1cv = - k_RToff*x_RTp1cv + k_RTon*x_RT*x_p1cv + k_degv*x_RTp1v*x_aCas13
+            u_RTp2cu = - k_RToff*x_RTp2cu + k_RTon*x_RT*x_p2cu + k_degv*x_RTp2u*x_aCas13
 
-        
-        if self.mechanism_B == 'yes':
-            dist = expon(loc = self.k_loc_deactivation, scale = self.k_scale_deactivation)
-            x_aCas13 = dist.sf(t)*x_Cas13
-            
-        else:
-            x_aCas13 = x_Cas13
-        
-        #Rates
-        C_scale =  10 ** 6
-        u_v = - k_degv*x_v*x_aCas13 - k_bds*x_v*x_u - k_bds*x_v*x_p1
-        u_p1v =  k_bds*x_v*x_p1/C_scale - k_degv*x_p1v*x_aCas13 - k_RTon*x_p1v*x_RT + k_RToff*x_RTp1v
-        u_p2u = k_bds*x_u*x_p2 - k_degv*x_p2u*x_aCas13 - k_RTon*x_p2u*x_RT + k_RToff*x_RTp2u
-        u_p1cv = k_degv*x_p1v*x_aCas13 - k_RTon*x_p1cv*x_RT + k_RToff*x_RTp1cv
-        u_p2cu = k_degv*x_p2u*x_aCas13 - k_RTon*x_p2cu*x_RT + k_RToff*x_RTp2cu
+            u_cDNA1v = k_FSS*x_RTp1v - k_RNaseon*x_cDNA1v*x_RNase + k_RNaseoff*x_RNasecDNA1v
+            u_cDNA2u = k_FSS*x_RTp2u - k_RNaseon*x_cDNA2u*x_RNase + k_RNaseoff *x_RNasecDNA2u
+            u_RNasecDNA1v = - k_RHA*x_RNasecDNA1v - k_RNaseoff*x_RNasecDNA1v + k_RNaseon*x_RNase*x_cDNA1v
+            u_RNasecDNA2u = - k_RHA*x_RNasecDNA2u - k_RNaseoff*x_RNasecDNA2u + k_RNaseon*x_RNase*x_cDNA2u
 
-        u_RTp1v = - k_RToff*x_RTp1v + k_RTon*x_RT*x_p1v - k_degv*x_RTp1v*x_aCas13 - k_FSS*x_RTp1v
-        u_RTp2u = - k_RToff*x_RTp2u + k_RTon*x_RT*x_p2u - k_degv*x_RTp2u*x_aCas13 - k_FSS*x_RTp2u
-        u_RTp1cv = - k_RToff*x_RTp1cv + k_RTon*x_RT*x_p1cv + k_degv*x_RTp1v*x_aCas13
-        u_RTp2cu = - k_RToff*x_RTp2cu + k_RTon*x_RT*x_p2cu + k_degv*x_RTp2u*x_aCas13
+            u_cDNA1 = k_RHA*x_RNasecDNA1v - k_bds*x_cDNA1*x_p2
+            u_cDNA2 = k_RHA*x_RNasecDNA2u - k_bds*x_cDNA2*x_p1
+            u_p2cDNA1 =  k_bds*x_cDNA1*x_p2 + k_RToff*x_RTp2cDNA1 - k_RTon*x_RT*x_p2cDNA1
+            u_p1cDNA2 = k_bds*x_cDNA2*x_p1 + k_RToff*x_RTp1cDNA2 - k_RTon*x_RT*x_p1cDNA2
+            u_RTp2cDNA1 = k_RTon*x_RT*x_p2cDNA1 - k_RToff*x_RTp2cDNA1 - k_SSS*x_RTp2cDNA1
+            u_RTp1cDNA2 = k_RTon*x_RT*x_p1cDNA2 - k_RToff*x_RTp1cDNA2 - k_SSS*x_RTp1cDNA2
 
-        u_cDNA1v = k_FSS*x_RTp1v - k_RNaseon*x_cDNA1v*x_RNase + k_RNaseoff*x_RNasecDNA1v
-        u_cDNA2u = k_FSS*x_RTp2u - k_RNaseon*x_cDNA2u*x_RNase + k_RNaseoff *x_RNasecDNA2u
-        u_RNasecDNA1v = - k_RHA*x_RNasecDNA1v - k_RNaseoff*x_RNasecDNA1v + k_RNaseon*x_RNase*x_cDNA1v
-        u_RNasecDNA2u = - k_RHA*x_RNasecDNA2u - k_RNaseoff*x_RNasecDNA2u + k_RNaseon*x_RNase*x_cDNA2u
-
-        u_cDNA1 = k_RHA*x_RNasecDNA1v - k_bds*x_cDNA1*x_p2
-        u_cDNA2 = k_RHA*x_RNasecDNA2u - k_bds*x_cDNA2*x_p1
-        u_p2cDNA1 =  k_bds*x_cDNA1*x_p2 + k_RToff*x_RTp2cDNA1 - k_RTon*x_RT*x_p2cDNA1
-        u_p1cDNA2 = k_bds*x_cDNA2*x_p1 + k_RToff*x_RTp1cDNA2 - k_RTon*x_RT*x_p1cDNA2
-        u_RTp2cDNA1 = k_RTon*x_RT*x_p2cDNA1 - k_RToff*x_RTp2cDNA1 - k_SSS*x_RTp2cDNA1
-        u_RTp1cDNA2 = k_RTon*x_RT*x_p1cDNA2 - k_RToff*x_RTp1cDNA2 - k_SSS*x_RTp1cDNA2
-
-        u_pro = k_SSS*x_RTp2cDNA1 + k_SSS*x_RTp1cDNA2 - k_T7on*x_T7*x_pro + k_T7off*x_T7pro + k_txn*x_T7pro
-        u_T7pro = - k_T7off*x_T7pro + k_T7on*x_T7*x_pro - k_txn*x_T7pro
-        u_u = k_txn*x_T7pro - k_bds*x_u*x_v/C_scale - k_degv*x_u*x_aCas13 - k_cas13*x_u*x_iCas13 - k_bds*x_u*x_p2
-        u_Cas13 = k_cas13*x_u*x_iCas13
-        u_uv = k_bds*x_u*x_v/C_scale
-        u_qRf = - k_degRrep*x_aCas13*x_qRf
-        
-        velocity = [u_v, u_p1v, u_p2u, u_p1cv, u_p2cu, u_RTp1v, u_RTp2u, u_RTp1cv \
-        , u_RTp2cu, u_cDNA1v, u_cDNA2u, u_RNasecDNA1v, u_RNasecDNA2u, u_cDNA1, u_cDNA2, u_p2cDNA1, u_p1cDNA2, u_RTp2cDNA1 \
-        , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf]
+            u_pro = k_SSS*x_RTp2cDNA1 + k_SSS*x_RTp1cDNA2 - k_T7on*x_T7*x_pro + k_T7off*x_T7pro + k_txn*x_T7pro
+            u_T7pro = - k_T7off*x_T7pro + k_T7on*x_T7*x_pro - k_txn*x_T7pro
+            u_u = k_txn*x_T7pro - k_bds*x_u*x_v/C_scale - k_degv*x_u*x_aCas13 - k_cas13*x_u*x_iCas13 - k_bds*x_u*x_p2
+            u_Cas13 = k_cas13*x_u*x_iCas13
+            u_uv = k_bds*x_u*x_v/C_scale
+            u_qRf = - k_degRrep*x_aCas13*x_qRf
+            u_dummy = k_txn*x_T7pro
+         
+            velocity = [u_v, u_p1v, u_p2u, u_p1cv, u_p2cu, u_RTp1v, u_RTp2u, u_RTp1cv \
+            , u_RTp2cu, u_cDNA1v, u_cDNA2u, u_RNasecDNA1v, u_RNasecDNA2u, u_cDNA1, u_cDNA2, u_p2cDNA1, u_p1cDNA2, u_RTp2cDNA1 \
+            , u_RTp1cDNA2, u_pro, u_T7pro, u_u, u_Cas13, u_uv, u_qRf, u_dummy]
         
         return velocity
+    
