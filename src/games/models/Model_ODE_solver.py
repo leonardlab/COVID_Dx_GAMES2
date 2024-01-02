@@ -94,7 +94,10 @@ class Mechanism_Solver(object):
         self.make_jacobian()
         self.t = tspace
         actual_initial_condition = self.initial_condition[self.free_indices].astype(float)
-        result = solve_ivp(self.gradient, [self.t[0], self.t[-1]], actual_initial_condition, args = (self.actual_rates,), method = self.solver_alg, atol = self.abs_tol, rtol = self.rel_tol, t_eval = self.t, jac = self.jacobian) # atol = self.abs_tol, rtol = self.rel_tol,
+        if self.ode_solver_tolerance == "low":
+            result = solve_ivp(self.gradient, [self.t[0], self.t[-1]], actual_initial_condition, args = (self.actual_rates,), method = self.solver_alg, atol = self.abs_tol, rtol = self.rel_tol, t_eval = self.t, jac = self.jacobian)
+        else:
+            result = solve_ivp(self.gradient, [self.t[0], self.t[-1]], actual_initial_condition, args = (self.actual_rates,), method = self.solver_alg, t_eval = self.t, jac = self.jacobian)
         sol = result.y.T
     
         self.solution = np.empty((np.shape(sol)[0], len(self.initial_condition)))
@@ -207,6 +210,7 @@ class ODE_solver(Mechanism_Solver):
         self.rel_tol = None
         self.complete_output = 0
         self.solver_alg = 'LSODA'
+        self.ode_solver_tolerance = "low"
 
 
     def make_jacobian(self) -> None:
@@ -533,6 +537,7 @@ class ODE_solver_D(Mechanism_Solver):
         self.abs_tol = None
         self.rel_tol = None
         self.solver_alg = 'LSODA'
+        self.ode_solver_tolerance = "low"
 
 
     def make_jacobian(self):

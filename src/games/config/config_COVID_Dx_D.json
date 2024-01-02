@@ -1,7 +1,7 @@
 { "folder_name": "COVID_Dx_model_D_test", 
   "dataID" : "rep2 slice drop high error",
   "mechanismID" : "D",
-  "solver tolerance" : "low",
+  "ode_solver_tolerance" : "low",
   "context" : "/Users/kdreyer/Documents/Github/COVID_Dx_GAMES2/src/games/",
   "parameters" : [2.22994E-05, 8940.243435, 226.2897324, 232.9366873, 1.749944885, 22.66728787, 4.675577757, 97.309157, 19.21663556], 
   "parameters_reference" : [],

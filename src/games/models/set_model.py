@@ -27,7 +27,8 @@ def set_model():
 
     given_model = COVID_Dx(
         parameters=settings["parameters"],
-        mechanismID=settings["mechanismID"]
+        mechanismID=settings["mechanismID"],
+        ode_solver_tolerance=settings["ode_solver_tolerance"]
     )
 
 

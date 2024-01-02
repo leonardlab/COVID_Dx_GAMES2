@@ -50,7 +50,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
    df_error = pd.read_pickle(filename_error)
 
 #Choose conditions to include or drop                             
-   if settings["dataID"] == 'all echo without low iCas13 or 0 vRNA not in slice drop high error':
+   if settings["dataID"] == 'rep1 all echo without low iCas13 or 0 vRNA not in slice drop high error':
       labels1 = [[1.0, 2.5, 0.005, 1, 90], [5.0, 2.5, 0.005, 1, 90], [20.0, 2.5, 0.005, 1, 90]]
       labels10 = [[1.0, 2.5, 0.005, 10, 90], [5.0, 2.5, 0.005, 10, 90], [20.0, 2.5, 0.005, 10, 90]]
       labels_T7 = labels1 + labels10
@@ -78,7 +78,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
       timecourses_err = []
       maxVal = 0.6599948235700113
 
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0])
          if label == [20.0, 10.0, 0.001, 10.0, 90.0] or label == [20.0, 10.0, 0.001, 0.0, 90.0] or label == [5.0, 2.5, 0.001, 0.0, 90.0]:
                continue
@@ -95,7 +95,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
                      timecourses.append(timecourse)
                      exp_data = exp_data + timecourse
 
-      for (columnName, columnData) in df_error.iteritems():
+      for (columnName, columnData) in df_error.items():
          label = list(columnData.iloc[0])
          if label == [20.0, 10.0, 0.001, 10.0, 90.0] or label == [20.0, 10.0, 0.001, 0.0, 90.0] or label == [5.0, 2.5, 0.001, 0.0, 90.0]:
                continue
@@ -112,7 +112,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
                      error = error + err 
 
 
-   elif settings["dataID"] == 'rep 1 slice drop high error':
+   elif settings["dataID"] == 'rep1 slice drop high error':
       labels1 = [[1.0, 2.5, 0.005, 1, 90], [5.0, 2.5, 0.005, 1, 90], [20.0, 2.5, 0.005, 1, 90]]
       labels10 = [[1.0, 2.5, 0.005, 10, 90], [5.0, 2.5, 0.005, 10, 90], [20.0, 2.5, 0.005, 10, 90]]
       labels_T7 = labels1 + labels10
@@ -138,7 +138,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
    
       x = []
       exp_data = []
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0])
          
          if label == ([20.0, 10.0, 0.001, 10.0, 90.0] or label == [20.0, 10.0, 0.001, 0.0, 90.0]
@@ -154,7 +154,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
       exp_data = []
       timecourses = []
       timecourses_err = []
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0])
          
          if label == ([20.0, 10.0, 0.001, 10.0, 90.0] or label == [20.0, 10.0, 0.001, 0.0, 90.0]
@@ -168,7 +168,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
                exp_data = exp_data + timecourse           
    
       error = []
-      for (columnName, columnData) in df_error.iteritems():
+      for (columnName, columnData) in df_error.items():
          label = list(columnData.iloc[0])
          if label == ([20.0, 10.0, 0.001, 10.0, 90.0] or label == [20.0, 10.0, 0.001, 0.0, 90.0]
                       or label == [5.0, 2.5, 0.001, 0.0, 90.0]):
@@ -205,7 +205,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
       timecourses_err = []
       maxVal = 2.94995531724754
 
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0]) 
          if label in labels_slice or label in drop_labels:
                continue
@@ -219,7 +219,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
                      timecourses.append(timecourse)
                      exp_data = exp_data + timecourse
 
-      for (columnName, columnData) in df_error.iteritems():
+      for (columnName, columnData) in df_error.items():
          label = list(columnData.iloc[0])
          if label in labels_slice or label in drop_labels:
                continue
@@ -255,7 +255,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
    
       x = []
       exp_data = []
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0])
 
          if label in labels:
@@ -267,7 +267,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
       exp_data = []
       timecourses = []
       timecourses_err = []
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0])
 
          if label in labels:
@@ -278,7 +278,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
                exp_data = exp_data + timecourse           
    
       error = []
-      for (columnName, columnData) in df_error.iteritems():
+      for (columnName, columnData) in df_error.items():
          label = list(columnData.iloc[0])
          
          if label in labels:
@@ -312,7 +312,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
       timecourses_err = []
       maxVal = 1.12314566577301
 
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0]) 
          if label in labels_slice or label in drop_labels:
                continue
@@ -326,7 +326,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
                      timecourses.append(timecourse)
                      exp_data = exp_data + timecourse
 
-      for (columnName, columnData) in df_error.iteritems():
+      for (columnName, columnData) in df_error.items():
          label = list(columnData.iloc[0])
          if label in labels_slice or label in drop_labels:
                continue
@@ -362,7 +362,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
      
       x = []
       exp_data = []
-      for (columnName, columnData) in df_data.iteritems():
+      for (columnName, columnData) in df_data.items():
          label = list(columnData.iloc[0])
       
          if label in labels:

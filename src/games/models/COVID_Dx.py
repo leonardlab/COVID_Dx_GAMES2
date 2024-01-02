@@ -11,7 +11,7 @@ from typing import Tuple, List
 import numpy as np
 from scipy.integrate import odeint
 from games.plots.plots_training_data import plot_training_data_2d
-from games.models.Model_ODE_solver_outdated import ODE_solver, ODE_solver_D
+from games.models.Model_ODE_solver import ODE_solver, ODE_solver_D
 
 
 class COVID_Dx:
@@ -25,6 +25,7 @@ class COVID_Dx:
         parameters: List[float] = [1, 1, 1, 1, 1, 1],
         inputs: List[float] = None,
         mechanismID: str = "default",
+        ode_solver_tolerance: str = "low"
     ) -> None:
 
         """Initializes COVID-Dx model.
@@ -78,11 +79,12 @@ class COVID_Dx:
             "dsRNA (input:target)",
             "quench-ssRNA-fluoro",
             "quencher",
-            "fluorophore (output"
+            "fluorophore (output)"
         ]
         self.parameters = parameters
         self.inputs = inputs
         self.mechanismID = mechanismID
+        self.ode_solver_tolerance = ode_solver_tolerance
         number_of_states = len(self.state_labels)
         x_init = np.zeros(number_of_states)
         self.initial_conditions = x_init
@@ -157,6 +159,7 @@ class COVID_Dx:
             
             #Set solver algorithm
             solver.solver_alg = "LSODA"
+            solver.ode_solver_tolerance = self.ode_solver_tolerance
             solver.k_loc_deactivation = self.parameters[7]
             solver.k_scale_deactivation = self.parameters[8]
 
@@ -210,8 +213,9 @@ class COVID_Dx:
             final_time = 240
             tspace = np.linspace(0, final_time, timesteps)
             
-            #Set solver type and algorithm
+            #Set solver and algorithm
             solver.solver_alg = "LSODA"
+            solver.ode_solver_tolerance = self.ode_solver_tolerance
             solver.k_loc_deactivation = self.parameters[5]
             solver.k_scale_deactivation = self.parameters[6]
             
