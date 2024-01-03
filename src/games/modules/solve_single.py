@@ -126,16 +126,3 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
     print("*************************")
 
     return solutions_norm, mse, r_sq
-
-
-# Open default config file
-config_filepath = "/Users/kdreyer/Documents/Github/COVID_Dx_GAMES2/src/games/config/config_COVID_Dx_D.json"
-file = open(config_filepath, encoding="utf-8")
-settings_import = json.load(file)
-settings, folder_path, parameter_estimation_problem_definition = define_settings(
-    settings_import
-)
-
-solutions_norm, mse, r_sq = run_single_parameter_set(settings, folder_path)
-
-# print(solutions_norm)

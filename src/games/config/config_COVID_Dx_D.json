@@ -15,5 +15,6 @@
   "num_pem_evaluation_datasets" : 3, 
   "parallelization" : "yes",
   "parallelization global search" : "no", 
-  "num_cores" : 8
+  "num_cores" : 8,
+  "sensitivity_analysis" : "chi2"
 }
