@@ -185,7 +185,7 @@ def generate_pem_evaluation_data(
         x = list(df_global_search_results["x"].iloc[0])
         exp_data = list(df_global_search_results["exp_data"].iloc[0])
         exp_error = list(df_global_search_results["exp_error"].iloc[0])
-        solutions_norm_raw, mse, r_sq = solve_single_parameter_set(
+        solutions_norm_raw, _, mse, r_sq = solve_single_parameter_set(
             x,
             exp_data,
             exp_error,

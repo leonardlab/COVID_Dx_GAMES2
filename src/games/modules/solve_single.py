@@ -60,13 +60,13 @@ def solve_single_parameter_set(
         a float defining the value of the correlation coefficient (r_sq)
     """
 
-    solutions = model.solve_experiment(x)
+    solutions, df_sim = model.solve_experiment(x)
     solutions_norm = model.normalize_data(solutions)
     mse = calc_mse(exp_data, solutions_norm, exp_error, weight_by_error)
-    mse - check_filters(solutions, mse)
+    mse = check_filters(solutions, mse)
     r_sq = calc_r_sq(exp_data, solutions_norm)
 
-    return solutions_norm, mse, r_sq
+    return solutions_norm, df_sim, mse, r_sq
 
 
 def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[float], float, float]:
@@ -98,25 +98,21 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
     os.chdir(path)
     model.parameters = settings["parameters"]
     x, exp_data, exp_error = define_experimental_data(settings)
-    solutions_norm, mse, r_sq = solve_single_parameter_set(
+    solutions_norm, df_sim, mse, r_sq = solve_single_parameter_set(
         x,
         exp_data,
         exp_error,
-        settings["weight_by_error"],
+        settings["weight_by_error"]
     )
-    # filename = "fit to training data"
-    # run_type = "default"
+    
     # plot_timecourses(settings["modelID"], settings["parameter_labels"])
-    # model.plot_training_data(
-    #     x,
-    #     solutions_norm,
-    #     exp_data,
-    #     exp_error,
-    #     filename,
-    #     run_type,
-    #     settings["context"],
-    #     settings["dataID"],
-    # )
+    model.plot_training_data(
+        solutions_norm,
+        df_sim,
+        exp_data,
+        settings["context"],
+        settings["dataID"]
+    )
 
     print("")
     print("*************************")
@@ -133,7 +129,7 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
 
 
 # Open default config file
-config_filepath = "../config/config_COVID_Dx_D.json"
+config_filepath = "/Users/kdreyer/Documents/Github/COVID_Dx_GAMES2/src/games/config/config_COVID_Dx_D.json"
 file = open(config_filepath, encoding="utf-8")
 settings_import = json.load(file)
 settings, folder_path, parameter_estimation_problem_definition = define_settings(
@@ -142,4 +138,4 @@ settings, folder_path, parameter_estimation_problem_definition = define_settings
 
 solutions_norm, mse, r_sq = run_single_parameter_set(settings, folder_path)
 
-print(solutions_norm)
+# print(solutions_norm)

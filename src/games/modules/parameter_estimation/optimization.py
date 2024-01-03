@@ -86,24 +86,30 @@ def define_best_optimization_results(
     """
 
     best_case_parameters = []
+    best_case_parameters_full = []
     for i in range(0, len(settings["parameters"])):
         col_name = settings["parameter_labels"][i] + "*"
         val = df_optimization_results[col_name].iloc[0]
         best_case_parameters.append(val)
+        best_case_parameters_full.append(val)
     best_case_parameters = [np.round(parameter, 5) for parameter in best_case_parameters]
     solutions_norm = df_optimization_results["Simulation results"].iloc[0]
     r_sq_opt = round(df_optimization_results["r_sq"].iloc[0], 3)
     mse_opt_min = round(df_optimization_results["mse"].iloc[0], 3)
 
     if run_type not in ("ppl", "ppl threshold"):
-        filename = "best fit to training data"
-        model.plot_training_data(
+        model.parameters = best_case_parameters_full
+        solutions_norm, df_sim, _, _ = solve_single_parameter_set(
             df_optimization_results["x"].iloc[0],
-            solutions_norm,
             df_optimization_results["exp_data"].iloc[0],
             df_optimization_results["exp_error"].iloc[0],
-            filename,
-            run_type,
+            settings["weight_by_error"]
+    )
+
+        model.plot_training_data(
+            solutions_norm,
+            df_sim,
+            df_optimization_results["exp_data"].iloc[0],
             settings["context"],
             settings["dataID"],
         )
@@ -365,7 +371,7 @@ def define_results_row(
     # Solve ODEs with final optimized parameters
     model.parameters = list(results.params.valuesdict().values())[: len(initial_parameters)]
     [x, exp_data, exp_error] = data_information
-    solutions_norm, mse, r_sq = solve_single_parameter_set(
+    solutions_norm, _, mse, r_sq = solve_single_parameter_set(
         x, exp_data, exp_error, weight_by_error
     )
 
@@ -449,7 +455,7 @@ def optimize_single_initial_guess(row: tuple) -> Tuple[List[Any], List[Any]]:
     ) -> np.ndarray:
         p_opt = [p_1, p_2, p_3, p_4, p_5, p_6, p_7, p_8, p_9, p_10]
         model.parameters = p_opt[: len(parameter_labels)]
-        solutions_norm, mse, _ = solve_single_parameter_set(
+        solutions_norm, _, mse, _ = solve_single_parameter_set(
             x, exp_data, exp_error, weight_by_error
         )
         mse_list.append(mse)

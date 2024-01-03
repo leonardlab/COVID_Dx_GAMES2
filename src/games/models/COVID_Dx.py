@@ -9,9 +9,15 @@ Created on Thu Jun 16 09:11:29 2022
 import math
 from typing import Tuple, List
 import numpy as np
+import pandas as pd
 from scipy.integrate import odeint
-from games.plots.plots_training_data import plot_training_data_2d
-from games.models.Model_ODE_solver import ODE_solver, ODE_solver_D
+from games.plots.plots_training_data import (
+    plotModelingObjectives123, plotModelingObjectives456,
+    parityPlot
+)
+from games.models.Model_ODE_solver import (
+    ODE_solver, ODE_solver_D
+)
 
 
 class COVID_Dx:
@@ -278,9 +284,8 @@ class COVID_Dx:
             at the final timepoint for each ligand amount
 
         """
-
+        df_sim = pd.DataFrame()
         solutions = []
-
         for doses in x:
             self.inputs = doses
             t, _, reporter_timecourse = self.solve_single()
@@ -294,7 +299,18 @@ class COVID_Dx:
             for i in reporter_timecourse:
                 solutions.append(float(i))
 
-        return solutions
+            df_sim[str(doses)] = reporter_timecourse
+
+        #Normalize df solutions
+        for column in df_sim:
+            vals = list(df_sim[column])
+            if max(solutions) == 0:
+                df_sim[column] = vals
+            else:
+                df_sim[column] = [i/max(solutions) for i in vals]
+   
+
+        return solutions, df_sim
 
     @staticmethod
     def normalize_data(solutions_raw: List[float]) -> List[float]:
@@ -324,113 +340,72 @@ class COVID_Dx:
 
         return solutions_norm
 
-    # @staticmethod
-    # def plot_training_data(
-    #     x: list,
-    #     solutions_norm: List[float],
-    #     exp_data: List[float],
-    #     exp_error: List[float],
-    #     filename: str,
-    #     run_type: str,
-    #     context: str,
-    #     dataID: str,
-    # ) -> None:
-    #     """
-    #     Plots training data and simulated training data for a single parameter set
+    @staticmethod
+    def plot_training_data(
+        solutions_norm: List[float],
+        df_sim: pd.DataFrame,
+        exp_data: list[float],
+        context: str,
+        dataID: str
+    ) -> None:
+        """
+        Plots training data and simulated training data for a single parameter set
 
-    #     Parameters
-    #     ----------
-    #     x
-    #         list of floats defining the independent variable
+        Parameters
+        ----------
+        solutions_norm
+            list of floats defining the simulated dependent variable
 
-    #     solutions_norm
-    #         list of floats defining the simulated dependent variable
+        filename
+           a string defining the filename used to save the plot
 
-    #     exp_data
-    #         list of floats defining the experimental dependent variable
+        context
+            a string defining the file structure context
 
-    #     exp_error
-    #         list of floats defining the experimental error for the dependent variable
+        dataID
+            a string defining the dataID
 
-    #     filename
-    #        a string defining the filename used to save the plot
+        Returns
+        -------
+        None"""
 
-    #     run_type
-    #         a string containing the data type ('PEM evaluation' or else)
+        path = context + "config/"
 
-    #     context
-    #         a string defining the file structure context
+        if "rep1" in dataID:
+            filename_data = path + "PROCESSED DATA_EXP.pkl"
+            filename_error = path + "PROCESSED DATA_ERR.pkl"
 
-    #     dataID
-    #         a string defining the dataID
+            maxVal = 0.6599948235700113
+            y_max_RT = [0.4, 1.0]
+            y_max_RNase = [0.7, 1.0]
+            y_max_T7 = [0.7, 1.0]
 
-    #     Returns
-    #     -------
-    #     None"""
+        elif "rep2" in dataID:
+            filename_data = path + "PROCESSED_DATA_rep2_EXP.pkl"
+            filename_error = path + "PROCESSED_DATA_rep2_ERR.pkl"
 
-    #     # define plot settings
-    #     if run_type == "default":
-    #         plot_color = "black"
-    #         marker_type = "o"
+            maxVal = 2.94995531724754
+            y_max_RT = [0.15, 0.85]
+            y_max_RNase = [0.3, 1.0]
+            y_max_T7 = [0.45, 1.0]
+            
+        elif "rep3" in dataID:
+            filename_data = path + "PROCESSED_DATA_rep3_EXP.pkl"
+            filename_error = path + "PROCESSED_DATA_rep3_ERR.pkl"
 
-    #     elif run_type == "PEM evaluation":
-    #         plot_color = "dimgrey"
-    #         marker_type = "^"
+            maxVal = 1.12314566577301
+            y_max_RT = [0.7, 1.0]
+            y_max_RNase = [0.4, 1.0]
+            y_max_T7 = [0.5, 1.0]
+            
+        df_data = pd.read_pickle(filename_data)
+        df_error = pd.read_pickle(filename_error)
 
-    #     if dataID == "ligand dose response":
-    #         y_label = "Rep. protein (au)"
-    #         x_label = "Ligand (nM)"
-    #         x_scale = "symlog"
-    #         plot_settings = x_label, y_label, x_scale, plot_color, marker_type
-    #         plot_training_data_2d(
-    #             x, solutions_norm, exp_data, exp_error, filename, plot_settings, context
-    #         )
+        plotModelingObjectives123(solutions_norm)
+        plotModelingObjectives456(
+            df_sim, df_data, df_error, dataID,
+            maxVal, y_max_RT, y_max_T7, y_max_RNase
+        )
+        parityPlot(solutions_norm, exp_data)
 
-    #     elif dataID == "ligand dose response and DBD dose response":
-    #         # Define plot settings for ligand dose response
-    #         y_label = "Rep. protein (au)"
-    #         x_label = "Ligand (nM)"
-    #         x_scale = "symlog"
-    #         plot_settings = x_label, y_label, x_scale, plot_color, marker_type
 
-    #         # plot ligand dose response
-    #         filename_1 = filename + "ligand dose response"
-    #         plot_training_data_2d(
-    #             x[:11],
-    #             solutions_norm[:11],
-    #             exp_data[:11],
-    #             exp_error[:11],
-    #             filename_1,
-    #             plot_settings,
-    #             context,
-    #         )
-
-    #         # Define plot settings for DBD dose response
-    #         y_label = "Rep. protein (au)"
-    #         x_label = "DBD plasmid dose (ng)"
-    #         x_scale = "linear"
-    #         plot_settings = x_label, y_label, x_scale, plot_color, marker_type
-
-    #         # Plot DBD dose response @ 20ng AD
-    #         filename_2 = filename + "DBD dose response 20ng AD"
-    #         plot_training_data_2d(
-    #             x[11:19],
-    #             solutions_norm[11:19],
-    #             exp_data[11:19],
-    #             exp_error[11:19],
-    #             filename_2,
-    #             plot_settings,
-    #             context,
-    #         )
-
-    #         # Plot DBD dose response @ 10ng AD
-    #         filename_3 = filename + "DBD dose response 10ng AD"
-    #         plot_training_data_2d(
-    #             x[19:],
-    #             solutions_norm[19:],
-    #             exp_data[19:],
-    #             exp_error[19:],
-    #             filename_3,
-    #             plot_settings,
-    #             context,
-    #         )
