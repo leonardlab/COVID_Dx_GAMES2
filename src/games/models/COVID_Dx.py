@@ -16,7 +16,8 @@ from games.plots.plots_training_data import (
     parityPlot
 )
 from games.models.Model_ODE_solver import (
-    ODE_solver, ODE_solver_D
+    ODE_solver, ODE_solver_D,
+    ODE_solver_D_separate_free_plus_fixed_params
 )
 
 
@@ -95,7 +96,16 @@ class COVID_Dx:
         x_init = np.zeros(number_of_states)
         self.initial_conditions = x_init
 
-    def solve_single(self
+        if self.mechanismID == "D":
+            self.solve_single = self.solve_single_D
+        elif self.mechanismID == "D separate free params and fixed params":
+            self.solve_single = self.solve_single_D_separate_free_plus_fixed_params
+        elif self.mechanismID == "A" or self.mechanismID == "B" or self.mechanismID == "C":
+            self.solve_single = self.solve_single_ABC
+        else:
+            raise Exception("Mechanism ID does not match existing solver.")
+
+    def solve_single_D_separate_free_plus_fixed_params(self
     )-> Tuple[np.ndarray, list, np.ndarray]:
         """Solves COVID_Dx model for a single set of parameters and 
         inputs (doses)
@@ -114,132 +124,287 @@ class COVID_Dx:
 
         """
 
-        if self.mechanismID == "D":
-            solver = ODE_solver_D()
+        solver = ODE_solver_D_separate_free_plus_fixed_params()
 
-            C_scale = 10 ** 6
+        C_scale = 10 ** 6
 
-            self.initial_conditions[0] = self.inputs[3] * .000001  # x_v
-            self.initial_conditions[0] = self.initial_conditions[0] * C_scale #x_v' sent into ODEs (x_v' = x_v * 10^6)   
-            self.initial_conditions[1] = 250 # x_p1
-            self.initial_conditions[2] = 250 # x_p2
-            self.initial_conditions[7] = self.inputs[1] * 139.1 # x_RT
-            self.initial_conditions[8] = self.inputs[2] * 6060 # x_RNase
-            self.initial_conditions[23] = self.inputs[0] * 16.16 # x_T7
-            self.initial_conditions[27] = self.inputs[4]/2 # x_iCas13
-            self.initial_conditions[30] = 2500 # x_qRf
-            solver.set_initial_condition(np.array(self.initial_conditions))
+        self.initial_conditions[0] = self.inputs[3] * .000001  # x_v
+        self.initial_conditions[0] = self.initial_conditions[0] * C_scale #x_v' sent into ODEs (x_v' = x_v * 10^6)   
+        self.initial_conditions[1] = 250 # x_p1
+        self.initial_conditions[2] = 250 # x_p2
+        self.initial_conditions[7] = self.inputs[1] * 139.1 # x_RT
+        self.initial_conditions[8] = self.inputs[2] * 6060 # x_RNase
+        self.initial_conditions[23] = self.inputs[0] * 16.16 # x_T7
+        self.initial_conditions[27] = self.inputs[4]/2 # x_iCas13
+        self.initial_conditions[30] = 2500 # x_qRf
+        solver.set_initial_condition(np.array(self.initial_conditions))
 
-            #Parameters
-            k_cas13  = self.parameters[0] #nM-1 min-1
-            k_degv = self.parameters[1] #nM-1 min-1
-            k_txn = self.parameters[2] #min-1
-            k_FSS = self.parameters[3] #min-1
-            a_RHA = self.parameters[4]
-            b_RHA = self.parameters[5]
-            c_RHA = self.parameters[6]
+        #Parameters
+        k_cas13  = self.parameters[0] #nM-1 min-1
+        k_degv = self.parameters[1] #nM-1 min-1
+        k_degRrep = self.parameters[2] #nM-1 min-1
+        k_txn = self.parameters[3] #min-1
+        k_FSS = self.parameters[4] #min-1
+        k_SSS = self.parameters[5] #min-1
+        a_RHA = self.parameters[6]
+        b_RHA = self.parameters[7]
+        c_RHA = self.parameters[8]
+        k_bvu = self.parameters[9] #nM-1 min-1
+        k_bvp1 = self.parameters[10] #nM-1 min-1
+        k_bcp1 = self.parameters[11] #nM-1 min-1
+        k_bup2 = self.parameters[12] #nM-1 min-1
+        k_bcp2 = self.parameters[13] #nM-1 min-1
+        k_RTon = self.parameters[16] #nM-1 min-1
+        k_RToff = self.parameters[17] #nM-1 min-1
+        k_RNaseon = self.parameters[18] #nM-1 min-1
+        k_RNaseoff = self.parameters[19] #nM-1 min-1
+        k_T7on = self.parameters[20] #nM-1 min-1
+        k_T7off = self.parameters[21] #nM-1 min-1
 
-            k_bds = k_cas13 #nM-1 min-1
-            k_RTon = 0.024 #nM-1 min-1
-            k_RToff = 2.4 #min-1
-            k_T7on = 3.36 #nM-1 min-1
-            k_T7off = 12 #min-1
-            k_SSS = k_FSS #min-1
-            k_degRrep = k_degv  #nM-1 min-1
-            k_RNaseon = 0.024 #nM-1 min-1
-            k_RNaseoff = 2.4 #min-1
-            the_rates = np.array([k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, 
-                                k_T7on, k_T7off, k_FSS, a_RHA, b_RHA, c_RHA, k_SSS, 
-                                k_txn, k_cas13, k_degRrep]).astype(float)
-            solver.set_rates(the_rates)
-            solver.abs_tol = 1e-13
-            solver.rel_tol = 1e-10
-            solver.complete_output = 0
-            solver.conservation_form = True
-            solver.dist_type = "expon"
+
+        # k_bds = k_cas13 #nM-1 min-1
+        # k_RTon = 0.024 #nM-1 min-1
+        # k_RToff = 2.4 #min-1
+        # k_T7on = 3.36 #nM-1 min-1
+        # k_T7off = 12 #min-1
+        # k_SSS = k_FSS #min-1
+        # k_degRrep = k_degv  #nM-1 min-1
+        # k_RNaseon = 0.024 #nM-1 min-1
+        # k_RNaseoff = 2.4 #min-1
+        # k_degv, k_bvu, k_bvp1, k_bup2, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_bcp1, k_bcp2, k_T7on,
+        # k_T7off, k_FSS, aRHA, bRHA, cRHA, k_SSS, k_txn, k_cas13, k_degRrep
+        the_rates = np.array(
+            [k_degv, k_bvu, k_bvp1, k_bup2, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, k_bcp1,
+             k_bcp2, k_T7on, k_T7off, k_FSS, a_RHA, b_RHA, c_RHA, k_SSS, k_txn, k_cas13, k_degRrep
+            ]
+        ).astype(float)
+        solver.set_rates(the_rates)
+        solver.abs_tol = 1e-13
+        solver.rel_tol = 1e-10
+        solver.complete_output = 0
+        solver.conservation_form = True
+        solver.dist_type = "expon"
+    
+        #Time-stepping
+        timesteps = (240 * 100) + 1
+        final_time = 240
+        tspace = np.linspace(0, final_time, timesteps)
         
-            #Time-stepping
-            timesteps = (240 * 100) + 1
-            final_time = 240
-            tspace = np.linspace(0, final_time, timesteps)
-            
-            #Set solver algorithm
-            solver.solver_alg = "LSODA"
-            solver.ode_solver_tolerance = self.ode_solver_tolerance
-            solver.k_loc_deactivation = self.parameters[7]
-            solver.k_scale_deactivation = self.parameters[8]
+        #Set solver algorithm
+        solver.solver_alg = "LSODA"
+        solver.ode_solver_tolerance = self.ode_solver_tolerance
+        solver.k_loc_deactivation = self.parameters[14]
+        solver.k_scale_deactivation = self.parameters[15]
 
+        solver.mechanism_B = "yes"
+        solver.mechanism_C = "yes"
+
+        #Solve equations
+        solution, t = solver.solve(tspace)
+        
+        #Round results
+        solution = np.around(solution, decimals = 10)
+        
+        #Define the time course of the readout
+        timecourse_readout = solution[:, -1]   
+    
+        #Unscale vRNA to original units
+        vRNA_unscaled = [i/C_scale for i in solution[:,0]] #vRNA = vRNA' / 1000000
+        solution[:,0] = vRNA_unscaled
+        
+        #Restructure t and readout time course to match exp data sampling
+        t = t[::400]
+        timecourse_readout = timecourse_readout[::400]
+
+        #Restructure other model state time courses to match exp data and t
+        solutions = [solution[:, i][::400] for i in range(0, np.shape(solution)[-1])]
+
+        return t, solutions, timecourse_readout
+
+    def solve_single_D(self
+    )-> Tuple[np.ndarray, list, np.ndarray]:
+        """Solves COVID_Dx model for a single set of parameters and 
+        inputs (doses)
+
+        Parameters
+        ----------
+        none
+
+        Returns
+        -------
+        solution
+            An array of ODE solutions (rows are timepoints and columns are model states)
+
+        t
+            A 1D array of time values corresponding to the rows in solution
+
+        """
+
+        solver = ODE_solver_D()
+
+        C_scale = 10 ** 6
+
+        self.initial_conditions[0] = self.inputs[3] * .000001  # x_v
+        self.initial_conditions[0] = self.initial_conditions[0] * C_scale #x_v' sent into ODEs (x_v' = x_v * 10^6)   
+        self.initial_conditions[1] = 250 # x_p1
+        self.initial_conditions[2] = 250 # x_p2
+        self.initial_conditions[7] = self.inputs[1] * 139.1 # x_RT
+        self.initial_conditions[8] = self.inputs[2] * 6060 # x_RNase
+        self.initial_conditions[23] = self.inputs[0] * 16.16 # x_T7
+        self.initial_conditions[27] = self.inputs[4]/2 # x_iCas13
+        self.initial_conditions[30] = 2500 # x_qRf
+        solver.set_initial_condition(np.array(self.initial_conditions))
+
+        #Parameters
+        k_cas13  = self.parameters[0] #nM-1 min-1
+        k_degv = self.parameters[1] #nM-1 min-1
+        k_txn = self.parameters[2] #min-1
+        k_FSS = self.parameters[3] #min-1
+        a_RHA = self.parameters[4]
+        b_RHA = self.parameters[5]
+        c_RHA = self.parameters[6]
+
+        k_bds = k_cas13 #nM-1 min-1
+        k_RTon = 0.024 #nM-1 min-1
+        k_RToff = 2.4 #min-1
+        k_T7on = 3.36 #nM-1 min-1
+        k_T7off = 12 #min-1
+        k_SSS = k_FSS #min-1
+        k_degRrep = k_degv  #nM-1 min-1
+        k_RNaseon = 0.024 #nM-1 min-1
+        k_RNaseoff = 2.4 #min-1
+        the_rates = np.array([k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff, 
+                            k_T7on, k_T7off, k_FSS, a_RHA, b_RHA, c_RHA, k_SSS, 
+                            k_txn, k_cas13, k_degRrep]).astype(float)
+        solver.set_rates(the_rates)
+        solver.abs_tol = 1e-13
+        solver.rel_tol = 1e-10
+        solver.complete_output = 0
+        solver.conservation_form = True
+        solver.dist_type = "expon"
+    
+        #Time-stepping
+        timesteps = (240 * 100) + 1
+        final_time = 240
+        tspace = np.linspace(0, final_time, timesteps)
+        
+        #Set solver algorithm
+        solver.solver_alg = "LSODA"
+        solver.ode_solver_tolerance = self.ode_solver_tolerance
+        solver.k_loc_deactivation = self.parameters[7]
+        solver.k_scale_deactivation = self.parameters[8]
+
+        solver.mechanism_B = "yes"
+        solver.mechanism_C = "yes"
+        solver.txn_poisoning = "no"
+
+        #Solve equations
+        solution, t = solver.solve(tspace)
+        
+        #Round results
+        solution = np.around(solution, decimals = 10)
+        
+        #Define the time course of the readout
+        timecourse_readout = solution[:, -1]   
+    
+        #Unscale vRNA to original units
+        vRNA_unscaled = [i/C_scale for i in solution[:,0]] #vRNA = vRNA' / 1000000
+        solution[:,0] = vRNA_unscaled
+        
+        #Restructure t and readout time course to match exp data sampling
+        t = t[::400]
+        timecourse_readout = timecourse_readout[::400]
+
+        #Restructure other model state time courses to match exp data and t
+        solutions = [solution[:, i][::400] for i in range(0, np.shape(solution)[-1])]
+
+        return t, solutions, timecourse_readout
+    
+    def solve_single_ABC(self
+    )-> Tuple[np.ndarray, list, np.ndarray]:
+        """Solves COVID_Dx model for a single set of parameters and 
+        inputs (doses)
+
+        Parameters
+        ----------
+        none
+
+        Returns
+        -------
+        solution
+            An array of ODE solutions (rows are timepoints and columns are model states)
+
+        t
+            A 1D array of time values corresponding to the rows in solution
+
+        """
+
+        solver = ODE_solver()
+        
+        C_scale = 10 ** 6
+        self.initial_conditions[0] = self.inputs[3] * .000001  # x_v
+        self.initial_conditions[0] = self.initial_conditions[0] * C_scale #x_v' sent into ODEs (x_v' = x_v * 10^6)   
+        self.initial_conditions[1] = 250 # x_p1
+        self.initial_conditions[2] = 250 # x_p2
+        self.initial_conditions[7] = self.inputs[1] * 139.1 # x_RT
+        self.initial_conditions[8] = self.inputs[2] * 6060 # x_RNase
+        self.initial_conditions[23] = self.inputs[0] * 16.16 # x_T7
+        self.initial_conditions[27] = self.inputs[4]/2 # x_iCas13
+        self.initial_conditions[30] = 2500 # x_qRf
+        solver.set_initial_condition(np.array(self.initial_conditions))
+
+        #Parameters
+        k_cas13  = self.parameters[0] #nM-1 min-1
+        k_degv = self.parameters[1] #nM-1 min-1
+        k_txn = self.parameters[2] #min-1
+        k_FSS = self.parameters[3] #min-1
+        k_RHA = self.parameters[4] #min-1
+        
+        k_bds = k_cas13 #nM-1 min-1
+        k_RTon = .024 #nM-1 min-1
+        k_RToff = 2.4 #min-1
+        k_T7on = 3.36 #nM-1 min-1
+        k_T7off = 12 #min-1
+        k_SSS = k_FSS #min-1
+        k_degRrep = k_degv  #nM-1 min-1
+        k_RNaseon = .024 #nM-1 min-1
+        k_RNaseoff = 2.4 #min-1
+        the_rates = np.array([k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff,
+                            k_T7on, k_T7off, k_FSS, k_RHA, k_SSS, k_txn, k_cas13,
+                            k_degRrep]).astype(float)
+        solver.set_rates(the_rates)
+        solver.abs_tol = 1e-13
+        solver.rel_tol = 1e-10
+        solver.complete_output = 0
+        solver.conservation_form = True
+        solver.dist_type = "expon"
+
+        #Time-stepping
+        timesteps = (240 * 100) + 1
+        final_time = 240
+        tspace = np.linspace(0, final_time, timesteps)
+        
+        #Set solver and algorithm
+        solver.solver_alg = "LSODA"
+        solver.ode_solver_tolerance = self.ode_solver_tolerance
+        solver.k_loc_deactivation = self.parameters[5]
+        solver.k_scale_deactivation = self.parameters[6]
+        
+        
+        if self.mechanismID == "A":
+            solver.mechanism_B = "no"
+            solver.mechanism_C = "no"
+            solver.txn_poisoning = "no"
+        
+        elif self.mechanismID == "B":
+            solver.mechanism_B = "yes"
+            solver.mechanism_C = "no"
+            solver.txn_poisoning = "no"
+        
+        elif self.mechanismID == "C":
             solver.mechanism_B = "yes"
             solver.mechanism_C = "yes"
             solver.txn_poisoning = "no"
-            
-        else:
-            solver = ODE_solver()
-            
-            C_scale = 10 ** 6
-            self.initial_conditions[0] = self.inputs[3] * .000001  # x_v
-            self.initial_conditions[0] = self.initial_conditions[0] * C_scale #x_v' sent into ODEs (x_v' = x_v * 10^6)   
-            self.initial_conditions[1] = 250 # x_p1
-            self.initial_conditions[2] = 250 # x_p2
-            self.initial_conditions[7] = self.inputs[1] * 139.1 # x_RT
-            self.initial_conditions[8] = self.inputs[2] * 6060 # x_RNase
-            self.initial_conditions[23] = self.inputs[0] * 16.16 # x_T7
-            self.initial_conditions[27] = self.inputs[4]/2 # x_iCas13
-            self.initial_conditions[30] = 2500 # x_qRf
-            solver.set_initial_condition(np.array(self.initial_conditions))
-
-            #Parameters
-            k_cas13  = self.parameters[0] #nM-1 min-1
-            k_degv = self.parameters[1] #nM-1 min-1
-            k_txn = self.parameters[2] #min-1
-            k_FSS = self.parameters[3] #min-1
-            k_RHA = self.parameters[4] #min-1
-            
-            k_bds = k_cas13 #nM-1 min-1
-            k_RTon = .024 #nM-1 min-1
-            k_RToff = 2.4 #min-1
-            k_T7on = 3.36 #nM-1 min-1
-            k_T7off = 12 #min-1
-            k_SSS = k_FSS #min-1
-            k_degRrep = k_degv  #nM-1 min-1
-            k_RNaseon = .024 #nM-1 min-1
-            k_RNaseoff = 2.4 #min-1
-            the_rates = np.array([k_degv, k_bds, k_RTon, k_RToff, k_RNaseon, k_RNaseoff,
-                                k_T7on, k_T7off, k_FSS, k_RHA, k_SSS, k_txn, k_cas13,
-                                k_degRrep]).astype(float)
-            solver.set_rates(the_rates)
-            solver.abs_tol = 1e-13
-            solver.rel_tol = 1e-10
-            solver.complete_output = 0
-            solver.conservation_form = True
-            solver.dist_type = "expon"
-
-            #Time-stepping
-            timesteps = (240 * 100) + 1
-            final_time = 240
-            tspace = np.linspace(0, final_time, timesteps)
-            
-            #Set solver and algorithm
-            solver.solver_alg = "LSODA"
-            solver.ode_solver_tolerance = self.ode_solver_tolerance
-            solver.k_loc_deactivation = self.parameters[5]
-            solver.k_scale_deactivation = self.parameters[6]
-            
-            
-            if self.mechanismID == "A":
-                solver.mechanism_B = "no"
-                solver.mechanism_C = "no"
-                solver.txn_poisoning = "no"
-            
-            elif self.mechanismID == "B":
-                solver.mechanism_B = "yes"
-                solver.mechanism_C = "no"
-                solver.txn_poisoning = "no"
-            
-            elif self.mechanismID == "C":
-                solver.mechanism_B = "yes"
-                solver.mechanism_C = "yes"
-                solver.txn_poisoning = "no"
 
         #Solve equations
         solution, t = solver.solve(tspace)

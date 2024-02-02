@@ -35,8 +35,8 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
    path = settings["context"] + "config/"
 
    if "rep1" in settings["dataID"]:
-      filename_data = path + "PROCESSED DATA_EXP.pkl"
-      filename_error = path + "PROCESSED DATA_ERR.pkl"
+      filename_data = path + "PROCESSED_DATA_EXP.pkl"
+      filename_error = path + "PROCESSED_DATA_ERR.pkl"
 
    elif "rep2" in settings["dataID"]:
       filename_data = path + "PROCESSED_DATA_rep2_EXP.pkl"

@@ -146,7 +146,7 @@ def define_settings(settings_import: dict) -> Tuple[dict, str, dict]:
     parameter_estimation_problem_definition_ = {
         "num_vars": len(free_parameters),
         "names": settings_import["free_parameter_labels"],
-        "bounds": bounds_log,  #
+        "bounds": bounds_log,  
     }
     # Make main results directory and define path
     folder_path_ = make_main_directory(settings_import)
