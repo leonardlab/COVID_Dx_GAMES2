@@ -5,7 +5,7 @@ Created on Wed Jun 15 15:17:53 2022
 
 @author: kate
 """
-from typing import List, Tuple
+from typing import List, Tuple, Generator
 import numpy as np
 import pandas as pd
 from lmfit import Parameters, minimize
@@ -121,7 +121,7 @@ def plotModelingObjectives123(solutions: list) -> None:
         return f0, fmax, km, n, R_sq
 
     #Unnpack the data from "exp_data" and "error"
-    def chunks(lst: list, n: int) -> list:
+    def chunks(lst: list, n: int) -> Generator[list]:
         """
         Yield successive n-sized chunks from lst
         
