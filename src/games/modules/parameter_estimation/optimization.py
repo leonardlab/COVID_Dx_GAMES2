@@ -227,8 +227,8 @@ def optimize_all(
         plot_parameter_distributions_after_optimization(
             df_optimization_results, settings["parameter_labels"]
         )
-        if settings["modelID"] == "synTF_chem" and settings["dataID"] == "ligand dose response":
-            plot_training_data_fits(df_optimization_results)
+        # if settings["modelID"] == "synTF_chem" and settings["dataID"] == "ligand dose response":
+        #     plot_training_data_fits(df_optimization_results)
 
     df_optimization_results.to_csv("optimization results.csv")
 
