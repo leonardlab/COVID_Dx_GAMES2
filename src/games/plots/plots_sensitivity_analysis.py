@@ -9,27 +9,32 @@ def tornado_plot(
         metric_label: str, 
         param_labels: list
 ) -> None:
+    """Creates a tornado plot for the sensitivity analysis
 
-    """
-    Creates a tornado plot for the sensitivity analysis
+    Parameters
+    ----------
+    low_vals
+        a list of floats defining the percent changes 
+        in metric for decreasing each parameter by 10%
 
-    Args:
-        low_vals: a list of floats defining the percent changes 
-            for decreasing each parameter by 10%
-
-        high_vals: a list of floats defining the percent changes 
-            for increasing each parameter by 10% 
-        
-        param_labels: a list of strings defining the parameter
-            labels for the plot (Settings_COVID_Dx.py
-            conditions_dictionary["real_param_labels_all"])
-
+    high_vals
+        a list of floats defining the percent changes 
+        in metric for increasing each parameter by 10% 
     
-    Returns: none
+    param_labels
+        a list of strings defining the parameter
+        labels for the plot (defined in the config.json
+        file being used, "parameter_labels")
 
-    Figures:
-        './tornado plot_' + model + '_' + data + tolerance + '.svg':
-            tornado plot for the sensitivity analysis
+    Returns
+    -------
+    None
+
+    Figures
+    -------
+    './tornado plot_' + model + '_' + data + tolerance + '.svg':
+        tornado plot for the sensitivity analysis
+
     """
     num_params = len(param_labels)
 

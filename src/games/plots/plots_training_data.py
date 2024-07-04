@@ -13,48 +13,52 @@ import matplotlib.pyplot as plt
 from games.utilities.metrics import calc_r_sq
 
 def plotModelingObjectives123(solutions: list) -> None:
-
-
-
+    """Plots the modeling objectives involving Hill fit summary metrics
+        (1, 2, 3). Can also be used to plot the Hill fit summary metrics 
+        for the experimental data.
     
-    '''
-    Plots the modeling objectives involving Hill fit summary metrics
-        (1, 2, 3).
-    Can also be used to plot the Hill fit summary metrics for the
-        experimental data.
-    
-    Args: 
-        solutions: a list of floats defining the data for each condition
-        and timepoint (length = # data points total, for all doses at all 
-        timepoints)
-            
-    Returns: none
-    '''
-    
+    Parameters
+    ---------- 
+    solutions
+        a list of floats defining the data for each condition and 
+        timepoint (length = # data points total, for all doses at 
+        all timepoints)
+
+    Returns
+    -------
+    None
+
+    """
     def fitHill(y_exp: list) -> Tuple[float, float, float, float, float]:
-
-        """
-        Fits data to a hill function for a single set of
+        """Fits data to a hill function for a single set of
             conditions (component doses).
 
-        Args: 
-            y_exp: a list of floats defining the normalized 
-                simulation values for a single set of conditions
+        Parameters
+        ---------
+        y_exp
+            a list floats defining the normalized simulation 
+            values for a single set of conditions
 
-        Returns:
-            f0: a float defining the initial value in the dataset
+        Returns
+        -------
+        f0
+            a float defining the initial value in the dataset
 
-            fmax: a float defining the final value in the dataset
+        fmax
+            a float defining the final value in the dataset
 
-            km: a float defining the optimized parameter for t1/2
+        km
+            a float defining the optimized parameter for t1/2
 
-            n: a float defining the optimized parameter for the 
-                Hill coefficient
+        n
+            a float defining the optimized parameter for the 
+            Hill coefficient
 
-            R_sq: a float defining the R squared value between the 
-                data and the Hill fit
+        R_sq
+            a float defining the R squared value between the 
+            data and the Hill fit
+
         """
-
         x = list(np.linspace(0, 240, 61)) #time (min)
         
         #Set v max to the final value of the time course
@@ -64,29 +68,32 @@ def plotModelingObjectives123(solutions: list) -> None:
         f0 = y_exp[0]
     
         def residual(p: list, x: list, y_exp: list) -> float:
-
-            """
-            Calculates the residual between the input simulation
+            """Calculates the residual between the input simulation
                 values and the Hill fit. Used in the minimization
                 function as the cost function to be minimized
                 between the simulation and the Hill fit.
 
-            Args:
-                p: a list of floats defining the parameters for
-                    the hill function
+            Parameters
+            ----------
+            p
+                a list of floats defining the parameters for
+                the hill function
 
-                x: a list of floats defining the time values for
-                    the simulation
+            x
+                a list of floats defining the time values for
+                the simulation
 
-                y_exp: a list of floats defining the simulation
-                    values
+            y_exp
+                a list of floats defining the simulation
+                values
 
-            Returns: 
-                (y_exp - model): a float defining the residual 
-                between the input simulation values and the Hill 
-                fit
+            Returns
+            -------
+            (y_exp - model)
+                a float defining the residual between the
+                input simulation values and the Hill fit
+
             """
-
             km = p['km'].value
             n = p['n'].value
             model = (((fmax - f0) * (x ** n)) / (km ** n + x ** n)) + f0
@@ -122,41 +129,47 @@ def plotModelingObjectives123(solutions: list) -> None:
 
     #Unnpack the data from "exp_data" and "error"
     def chunks(lst: list, n: int) -> Generator[list]:
-        """
-        Yield successive n-sized chunks from lst
+        """Yield successive n-sized chunks from lst
         
-        Args:
-            lst: a list of floats
+        Parameters
+        ----------
+        lst
+            a list of floats
             
-            n: an integer defining the size of each chunk
+        n
+            an integer defining the size of each chunk
 
-        Returns:
-            lst[i:i + n]: a list of lists containing the values
+        Returns
+        -------
+        lst[i:i + n]
+            a list of lists containing the values
             from lst structured as n-sized chunks
-        """
 
+        """
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
         
     def fitHillAllData(data_lists: list) -> None:
-
-        """
-        Fits data to a hill function for all conditions
+        """Fits data to a hill function for all conditions
             (component doses).
 
-        Args:
-            data_lists: a list of lists containing the
-                simulation values for each set of
-                conditions
+        Parameters
+        ----------
+        data_lists
+            a list of lists containing the simulation values
+            for each set of conditions
         
-        Returns: none
+        Returns
+        -------
+        None
 
-        Figures: 
-        ''MODELING OBJECTIVES 123 ' + '.svg'':
-            Plot of modeling objectives involving Hill fit summary
-                metrics (1, 2, 3)
+        Figures
+        -------
+        ''MODELING OBJECTIVES 123 ' + '.svg''
+            Plot of modeling objectives involving Hill fit
+            summary metrics (1, 2, 3)
+
         """
-
         fit_params = []
         for time_course in data_lists:
             f0, fmax, km, n, R_sq = fitHill(time_course)
@@ -218,31 +231,38 @@ def resultsPanel(
         varyCondition: str, maxVal: float, y_max_RT: list, 
         y_max_T7: list, y_max_RNase: list
  ) -> None:   
-   
-    '''
-    Plots selected readout time courses (sweeps) for a given enzyme
+    """Plots selected readout time courses (sweeps) for a given enzyme
     
-    Args: 
-        dfSim: a dataframe containing the simulated data
+    Parameters
+    ---------- 
+    dfSim
+        a dataframe containing the simulated data
 
-        dfExp: a dataframe containing the experimental data
+    dfExp
+        a dataframe containing the experimental data
 
-        dfErr: a dataframe containing the measurement error associated with
-            the experimental data
-        
-        labels: a list of lists containing the condition labels to be plotted
-
-        varyCondition: a string contraining the label of the enzyme condition
-            that is sweeped over in the plot
-   
-    Returns: none
-        
-    Figures: 
-        'modeling_objective_' + str(objective) + '.svg'':
-            plot of readout dynamics associated with the given modeling objective
-                (enzyme sweep)
-    '''
+    dfErr
+        a dataframe containing the measurement error associated with
+        the experimental data
     
+    labels
+        a list of lists containing the condition labels to be plotted
+
+    varyCondition
+        a string contraining the label of the enzyme condition
+        that is sweeped over in the plot
+   
+    Returns
+    -------
+    None
+        
+    Figures
+    ------- 
+    'modeling_objective_' + str(objective) + '.svg''
+        plot of readout dynamics associated with the given modeling objective
+        (enzyme sweep)
+
+    """
     fig = plt.figure(figsize = (12,3))
     fig.subplots_adjust(wspace=0.1, hspace=0.1)
     ax1 = plt.subplot(141)   
@@ -251,25 +271,30 @@ def resultsPanel(
     ax4 = plt.subplot(144)
    
     def grabData(labels: list) -> Tuple[list, list, list]:
-        """
-        Compiles the simulation values and experimental
+        """Compiles the simulation values and experimental
             data for the given set of labels
 
-        Args:
-            labels: a list of lists defining the labels
-                (component doses) to compile data for
+        Parameters
+        ----------
+        labels
+            a list of lists defining the labels
+            (component doses) to compile data for
             
-        Returns:
-            sim: a list of lists defining the simulation
-                values for the set of labels
+        Returns
+        -------
+        sim
+            a list of lists defining the simulation
+            values for the set of labels
 
-            exp: a list of lists defining the experimental
-                data for the set of labels
+        exp
+            a list of lists defining the experimental
+            data for the set of labels
 
-            err: a list of lists defining the experimental
-                error for the set of labels
+        err
+            a list of lists defining the experimental
+            error for the set of labels
+
         """
-
         count = 0
         sim = [[0] * 61] * 3
            
@@ -415,17 +440,20 @@ def plotModelingObjectives456(
         df_error: pd.DataFrame, dataID: str, maxVal: float,
         y_max_RT: list, y_max_T7: list, y_max_RNase: list
 ) -> None:
+    """Plots selected readout time courses for objectives 4, 5, 
+        and 6 (enzyme sweeps). Calls resultsPanel for each 
+        objective to generate plots
     
-    '''
-    Plots selected readout time courses for objectives 4, 5, and 6 (enzyme sweeps).
-    Calls resultsPanel for each objective to generate plots
-    
-    Args: 
-        dfSim: a dataframe containing the simulated data
+    Parameters
+    ---------- 
+    dfSim
+        a dataframe containing the simulated data
    
-    Returns: none
-    '''
-     
+    Returns
+    -------
+    None
+
+    """
     cas = 90
     labels = [[1.0, 2.5, 0.005, 1, cas], [5.0, 2.5, 0.005, 1, cas], [20.0, 2.5, 0.005, 1, cas]]
     varyCondition = 'T7'
@@ -450,21 +478,26 @@ def plotModelingObjectives456(
 
 def parityPlot(sim: list, exp: list) -> None:
     
-    ''' 
+    """
     Plots the experimental and simulated data in the form of a parity plot
     
-    Args: 
-        sim: a list of floats containing simulated values
+    Parameters
+    ---------- 
+    sim
+        a list of floats containing simulated values
 
-        exp: a list of floats containing experimental values
+    exp
+        a list of floats containing experimental values
         
-    Returns: none
+    Returns
+    None
         
-    Figures: 
-        'fit_to_training_data_parity_plot.svg':
-            a parity plot of the experimental vs simulated data
-    '''
-    
+    Figures
+
+    'fit_to_training_data_parity_plot.svg'
+        a parity plot of the experimental vs simulated data
+        
+    """
     color_ = 'black'
         
     fig = plt.figure(figsize = (3.375,3))

@@ -12,25 +12,30 @@ def single_param_sweep_10pct(
         exp_data: list[float], exp_error: list[float],
         settings: dict
 ) -> Tuple[float, float]:
-
-    """
-    Solves model ODEs for all conditions (component doses) for two 
+    """Solves model ODEs for all conditions (component doses) for two 
         cases of changing parameter at param_index: increase by 10%
         and decrease by 10%
 
-    Args:
-        p: a list of floats defining the parameter values for all 
-            potentially free parameters (Settings_COVID_Dx.py
-            conditions_dictionary["p_all"])
+    Parameters
+    ----------    
+    p
+        a list of floats defining the parameter values for all 
+        potentially free parameters (defined in the config.json
+        file being used, "parameters")
 
-        param_index: an integer defining the index of the parameter for the sweep
+    param_index
+        an integer defining the index of the parameter for the sweep
 
-    Returns:
-        mse_low: a float defining the mse resulting from the 10% decrease in
-            the parameter
+    Returns
+    -------
+    mse_low
+        a float defining the mse resulting from the 10% decrease in
+        the parameter
 
-        mse_high: a float defining the mse resulting from the 10% increase in
-            the parameter
+    mse_high
+        a float defining the mse resulting from the 10% increase in
+        the parameter
+
     """
 
     p_vals = deepcopy(p)
@@ -56,21 +61,26 @@ def all_param_sweeps_mse(
         settings: dict
  ) -> Tuple[list, list]:
 
-    """
-    Performs all parameter sweeps for increasing or decreasing 
+    """Performs all parameter sweeps for increasing or decreasing 
         each parameter value by 10%
 
-    Args:
-        p: a list of floats defining the parameter values for all 
-            potentially free parameters (Settings_COVID_Dx.py
-            conditions_dictionary["p_all"])
+    Parameters
+    ----------
+    p
+        a list of floats defining the parameter values for all 
+        potentially free parameters (defined in the config.json
+        file being used, "parameters")
     
-    Returns:
-        pct_mse_low_list: a list of floats defining the percent changes 
-            for decreasing each parameter by 10%
+    Returns
+    -------
+    pct_mse_low_list
+        a list of floats defining the percent changes 
+        in MSE for decreasing each parameter by 10%
 
-        pct_mse_high_list: a list of floats defining the percent changes 
-            for increasing each parameter by 10%
+    pct_mse_high_list
+        a list of floats defining the percent changes 
+        in MSE for increasing each parameter by 10%
+        
     """
     model.parameters = p
     _, _, mse_mid, _ = solve_single_parameter_set(

@@ -12,9 +12,7 @@ import json
 from games.models.set_model import model
 from games.utilities.saving import create_folder
 from games.utilities.metrics import calc_mse, check_filters, calc_r_sq
-from games.plots.plots_timecourses import plot_timecourses
 from games.config.experimental_data import define_experimental_data
-from games.config.settings import define_settings
 
 
 def solve_single_parameter_set(
@@ -23,8 +21,7 @@ def solve_single_parameter_set(
     exp_error: List[float],
     weight_by_error: str,
 ) -> Tuple[List[float], float, float]:
-    """
-    Solves model for a single parameter set
+    """Solves model for a single parameter set
 
     Parameters
     ----------
@@ -38,14 +35,8 @@ def solve_single_parameter_set(
         a list of floats containing the values of the measurement error
         for the dependent variable
 
-    dataID
-        a string defining the dataID
-
     weight_by_error
         a string defining whether the cost function should be weighted by error or not
-
-    parameter_labels
-        a list of strings defining the parameter labels
 
     Returns
     -------
@@ -53,11 +44,16 @@ def solve_single_parameter_set(
         a list of floats containing the normalized simulation values
         corresponding to the dataID defined in Settings
 
-    chi_sq
-        a float defining the value of the cost function
+    df_sim
+        a dataframe containing the simulation values for all
+        model states
+
+    mse
+        a float defining the value of the cost function (MSE)
 
     r_sq
         a float defining the value of the correlation coefficient (r_sq)
+    
     """
 
     solutions, df_sim = model.solve_experiment(x)
@@ -87,7 +83,7 @@ def run_single_parameter_set(settings: dict, folder_path: str) -> Tuple[List[flo
         values corresponding to the dataID defined in Settings
 
     mse
-        a float defining the value of the cost function
+        a float defining the value of the cost function (MSE)
 
     r_sq
         a float defining the value of the correlation coefficient (r_sq)

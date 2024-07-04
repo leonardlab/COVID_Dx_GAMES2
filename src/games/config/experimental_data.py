@@ -49,7 +49,7 @@ def define_experimental_data(settings: dict) -> Tuple[List[float], List[float], 
    df_data = pd.read_pickle(filename_data)
    df_error = pd.read_pickle(filename_error)
 
-#Choose conditions to include or drop                             
+   #Choose conditions to include or drop                             
    if settings["dataID"] == 'rep1 all echo without low iCas13 or 0 vRNA not in slice drop high error':
       labels1 = [[1.0, 2.5, 0.005, 1, 90], [5.0, 2.5, 0.005, 1, 90], [20.0, 2.5, 0.005, 1, 90]]
       labels10 = [[1.0, 2.5, 0.005, 10, 90], [5.0, 2.5, 0.005, 10, 90], [20.0, 2.5, 0.005, 10, 90]]

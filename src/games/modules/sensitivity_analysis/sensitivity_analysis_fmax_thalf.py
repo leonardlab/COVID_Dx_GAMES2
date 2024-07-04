@@ -9,29 +9,35 @@ from games.utilities.metrics import calc_r_sq, calc_percent_change
 from games.models.set_model import model
 
 def fitHill(y_exp: list) -> Tuple[float, float, float, float, float]:
-
-    """
-    Fits data to a hill function for a single set of
+    """Fits data to a hill function for a single set of
         conditions (component doses).
 
-    Args: 
-        y_exp: a list floats defining the normalized simulation 
-            values for a single set of conditions
+    Parameters
+    ---------
+    y_exp
+        a list floats defining the normalized simulation 
+        values for a single set of conditions
 
-    Returns:
-        f0: a float defining the initial value in the dataset
+    Returns
+    -------
+    f0
+        a float defining the initial value in the dataset
 
-        fmax: a float defining the final value in the dataset
+    fmax
+        a float defining the final value in the dataset
 
-        km: a float defining the optimized parameter for t1/2
+    km
+        a float defining the optimized parameter for t1/2
 
-        n: a float defining the optimized parameter for the 
-            Hill coefficient
+    n
+        a float defining the optimized parameter for the 
+        Hill coefficient
 
-        R_sq: a float defining the R squared value between the 
-            data and the Hill fit
+    R_sq
+        a float defining the R squared value between the 
+        data and the Hill fit
+
     """
-
     x = list(np.linspace(0, 240, 61)) #time (min)
 
     #Set v max to the final value of the time course
@@ -42,29 +48,32 @@ def fitHill(y_exp: list) -> Tuple[float, float, float, float, float]:
 
     #Define a function to calculate the residual between the input simulation value (sim) and the Hill fit (model)
     def residual(p: list, x: list, y_exp: list) -> float:
-
-        """
-        Calculates the residual between the input simulation
+        """Calculates the residual between the input simulation
             values and the Hill fit. Used in the minimization
             function as the cost function to be minimized
             between the simulation and the Hill fit.
 
-        Args:
-            p: a list of floats defining the parameters for
-                the hill function
+        Parameters
+        ----------
+        p
+            a list of floats defining the parameters for
+            the hill function
 
-            x: a list of floats defining the time values for
-                the simulation
+        x
+            a list of floats defining the time values for
+            the simulation
 
-            y_exp: a list of floats defining the simulation
-                values
+        y_exp
+            a list of floats defining the simulation
+            values
 
-        Returns: 
-            (y_exp - model): a float defining the residual 
-            between the input simulation values and the Hill 
-            fit
+        Returns
+        -------
+        (y_exp - model)
+            a float defining the residual between the
+            input simulation values and the Hill fit
+
         """
-
         km = p['km'].value
         n = p['n'].value
         model = (((fmax - f0) * (x ** n)) / (km ** n + x ** n)) + f0
@@ -103,27 +112,31 @@ def single_param_sweep_10pct(
         p: list, param_index: int, x: list[float],
         x_norm: list[float], settings: dict
 ) -> Tuple[float, float]:
-
-    """
-    Solves model ODEs for all conditions (component doses) for two 
+    """Solves model ODEs for all conditions (component doses) for two 
         cases of changing parameter at param_index: increase by 10%
         and decrease by 10%
 
-    Args:
-        p: a list of floats defining the parameter values for all 
-            potentially free parameters (Settings_COVID_Dx.py
-            conditions_dictionary["p_all"])
+    Parameters
+    ----------
+    p
+        a list of floats defining the parameter values for all 
+        potentially free parameters (defined in the config.json
+        file being used, "parameters")
 
-        param_index: an integer defining the index of the parameter for the sweep
+    param_index
+        an integer defining the index of the parameter for the sweep
 
-    Returns:
-        mse_low: a float defining the mse resulting from the 10% decrease in
-            the parameter
+    Returns
+    -------
+    mse_low
+        a float defining the mse resulting from the 10% decrease in
+        the parameter
 
-        mse_high: a float defining the mse resulting from the 10% increase in
-            the parameter
+    mse_high
+        a float defining the mse resulting from the 10% increase in
+        the parameter
+
     """
-
     p_vals = deepcopy(p)
     p_low = p_vals[param_index] * 0.9
     p_high = p_vals[param_index] * 1.1
@@ -160,22 +173,33 @@ def all_param_sweeps_fmax_thalf(
         p: list[float], parameter_labels: list[str], x: list[float],
         x_norm: list[float], settings: dict
  ) -> Tuple[list, list]:
-
-    """
-    Performs all parameter sweeps for increasing or decreasing 
+    """Performs all parameter sweeps for increasing or decreasing 
         each parameter value by 10%
 
-    Args:
-        p: a list of floats defining the parameter values for all 
-            potentially free parameters (Settings_COVID_Dx.py
-            conditions_dictionary["p_all"])
+    Parameters
+    ----------
+    p: a list of floats defining the parameter values for all 
+        potentially free parameters (defined in the config.json
+        file being used, "parameters")
     
-    Returns:
-        pct_mse_low_list: a list of floats defining the percent changes 
-            for decreasing each parameter by 10%
+    Returns
+    -------
+    pct_fmax_low_list
+        a list of floats defining the percent changes 
+        in F_max for decreasing each parameter by 10%
 
-        pct_mse_high_list: a list of floats defining the percent changes 
-            for increasing each parameter by 10%
+    pct_fmax_high_list
+        a list of floats defining the percent changes 
+        in F_max for increasing each parameter by 10%
+
+    pct_thalf_low_list
+        a list of floats defining the percent changes 
+        in t_1/2 for decreasing each parameter by 10%
+
+    pct_fhalf_high_list
+        a list of floats defining the percent changes 
+        in t_1/2 for increasing each parameter by 10%
+
     """
     model.parameters = p
     solutions_mid, _ = model.solve_experiment([x])

@@ -22,8 +22,7 @@ from games.models.Model_ODE_solver import (
 
 
 class COVID_Dx:
-    """
-    Representation of COVID_Dx model
+    """Representation of COVID_Dx model
 
     """
 
@@ -47,6 +46,11 @@ class COVID_Dx:
 
         mechanismID
             a string defining the mechanism identity
+
+        ode_solver_tolerance
+            a string defining the ODE solver tolerance
+            to use when soling the model ODEs ("low" or
+            "default")
 
         Returns
         -------
@@ -224,11 +228,11 @@ class COVID_Dx:
     def solve_single_D(self
     )-> Tuple[np.ndarray, list, np.ndarray]:
         """Solves COVID_Dx model for a single set of parameters and 
-        inputs (doses)
+        inputs (doses) - used for model D
 
         Parameters
         ----------
-        none
+        None
 
         Returns
         -------
@@ -323,7 +327,7 @@ class COVID_Dx:
     def solve_single_ABC(self
     )-> Tuple[np.ndarray, list, np.ndarray]:
         """Solves COVID_Dx model for a single set of parameters and 
-        inputs (doses)
+        inputs (doses) - used for models A, B, and C
 
         Parameters
         ----------
@@ -429,24 +433,23 @@ class COVID_Dx:
         return t, solutions, timecourse_readout
 
     def solve_experiment(self, x: list) -> list[float]:
-        """Solve synTF_Chem model for a list of ligand values.
+        """Solve COVID_Dx model for a list of component doses.
 
         Parameters
         ----------
         x
             a list of floats containing the independent variable
 
-        dataID
-            a string defining the dataID
-
-        parameter_labels
-            a list of strings defining the parameter labels
-
         Returns
         -------
         solutions
-            A list of floats containing the value of the reporter protein
+            A list of floats containing the simulated reporter output
+            values at each time point for each set of component doses
             at the final timepoint for each ligand amount
+
+        df_sim
+            a dataframe containing the simulation values for all
+            model states
 
         """
         df_sim = pd.DataFrame()
@@ -513,16 +516,21 @@ class COVID_Dx:
         context: str,
         dataID: str
     ) -> None:
-        """
-        Plots training data and simulated training data for a single parameter set
+        """Plots Hill fit metrics for simulated values (modeling objectives
+            1-3) and training data vs simulated values (modeling objectives 
+            4-6) for a single parameter set
 
         Parameters
         ----------
         solutions_norm
             list of floats defining the simulated dependent variable
+        
+        df_sim
+            a dataframe containing the simulation values for all
+            model states    
 
-        filename
-           a string defining the filename used to save the plot
+        exp_data
+            a list of floats containing the values of the dependent variable
 
         context
             a string defining the file structure context
@@ -532,8 +540,9 @@ class COVID_Dx:
 
         Returns
         -------
-        None"""
-
+        None
+        
+        """
         path = context + "config/"
 
         if "rep1" in dataID:
